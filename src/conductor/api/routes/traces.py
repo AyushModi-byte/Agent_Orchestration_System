@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
-from conductor.db.models import SpanRow
+from conductor.db.models import LLMCall, SpanRow, ToolCall
 
 
 class TraceNode(BaseModel):
@@ -24,6 +25,7 @@ class TraceNode(BaseModel):
     tokens_out: int
     cost_usd: float  # this span only
     subtree_cost_usd: float  # this span plus everything under it
+    llm_call_id: int | None = None
     attributes: dict[str, Any]
     children: list[TraceNode] = []
 
@@ -34,6 +36,39 @@ class TraceTree(BaseModel):
     status: str
     total_cost_usd: float
     roots: list[TraceNode]
+
+
+class LLMDetail(BaseModel):
+    role: str
+    model: str
+    schema_name: str | None
+    messages: list[dict[str, str]]
+    response: str | None
+    cache_hit: bool
+
+
+class ToolDetail(BaseModel):
+    tool: str
+    inputs: Any
+    outputs: Any
+    success: bool
+    error: str | None
+
+
+class SpanDetail(BaseModel):
+    """What a node's drawer shows: the full prompt/response or tool input/output behind a span."""
+
+    span_id: str
+    name: str
+    llm: LLMDetail | None = None
+    tool: ToolDetail | None = None
+
+
+def _json(text: str | None) -> Any:
+    try:
+        return json.loads(text) if text is not None else None
+    except ValueError:
+        return text
 
 
 def build_tree(rows: list[SpanRow]) -> list[TraceNode]:
@@ -51,6 +86,7 @@ def build_tree(rows: list[SpanRow]) -> list[TraceNode]:
             tokens_out=r.tokens_out,
             cost_usd=r.cost_usd,
             subtree_cost_usd=r.cost_usd,
+            llm_call_id=r.llm_call_id,
             attributes=r.attributes,
         )
         for r in rows
@@ -92,5 +128,54 @@ def make_router(sf: sessionmaker[Session]) -> APIRouter:
             total_cost_usd=sum(r.subtree_cost_usd for r in roots),
             roots=roots,
         )
+
+    @router.get("/traces/{task_id}/spans/{span_id}")
+    def span_detail(task_id: str, span_id: str) -> SpanDetail:
+        with sf() as s:
+            sp = s.query(SpanRow).filter_by(task_id=task_id, span_id=span_id).first()
+            if sp is None:
+                raise HTTPException(404, "span not found")
+            out = SpanDetail(span_id=span_id, name=sp.name)
+            if sp.llm_call_id is not None and (row := s.get(LLMCall, sp.llm_call_id)):
+                out.llm = LLMDetail(
+                    role=row.role,
+                    model=row.model,
+                    schema_name=row.schema_name,
+                    messages=row.request or [],
+                    response=row.response,
+                    cache_hit=row.cache_hit,
+                )
+            elif sp.name == "tool.call":
+                tool = sp.attributes.get("tool")
+                same = (
+                    s.query(SpanRow)
+                    .filter_by(task_id=task_id, name="tool.call", agent=sp.agent)
+                    .order_by(SpanRow.start_time, SpanRow.pk)
+                    .all()
+                )
+                same = [
+                    x
+                    for x in same
+                    if x.attributes.get("tool") == tool
+                    and x.attributes.get("subtask_id") == sp.attributes.get("subtask_id")
+                ]
+                calls = (
+                    s.query(ToolCall)
+                    .filter_by(task_id=task_id, agent=sp.agent or "", tool=tool or "")
+                    .order_by(ToolCall.id)
+                    .all()
+                )
+                calls = [c for c in calls if c.subtask_id == sp.attributes.get("subtask_id")]
+                idx = next((i for i, x in enumerate(same) if x.span_id == span_id), -1)
+                if 0 <= idx < len(calls):
+                    c = calls[idx]
+                    out.tool = ToolDetail(
+                        tool=c.tool,
+                        inputs=_json(c.inputs),
+                        outputs=_json(c.outputs),
+                        success=c.success,
+                        error=c.error,
+                    )
+            return out
 
     return router

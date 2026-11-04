@@ -1,0 +1,2094 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Conductor",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/memory": {
+   "get": {
+    "summary": "Dashboard",
+    "operationId": "dashboard_memory_get",
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MemoryDashboard"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/memory/{user_id}": {
+   "delete": {
+    "summary": "Delete User Memory",
+    "operationId": "delete_user_memory_memory__user_id__delete",
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "integer"
+         },
+         "title": "Response Delete User Memory Memory  User Id  Delete"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/traces/{task_id}": {
+   "get": {
+    "summary": "Trace",
+    "operationId": "trace_traces__task_id__get",
+    "parameters": [
+     {
+      "name": "task_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Task Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TraceTree"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/traces/{task_id}/spans/{span_id}": {
+   "get": {
+    "summary": "Span Detail",
+    "operationId": "span_detail_traces__task_id__spans__span_id__get",
+    "parameters": [
+     {
+      "name": "task_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Task Id"
+      }
+     },
+     {
+      "name": "span_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Span Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SpanDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/metrics/cost": {
+   "get": {
+    "summary": "Cost",
+    "operationId": "cost_metrics_cost_get",
+    "parameters": [
+     {
+      "name": "days",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 30,
+       "title": "Days"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CostReport"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/metrics/tasks/{task_id}": {
+   "get": {
+    "summary": "Per Task",
+    "operationId": "per_task_metrics_tasks__task_id__get",
+    "parameters": [
+     {
+      "name": "task_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Task Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskCost"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/replays": {
+   "post": {
+    "summary": "Create",
+    "operationId": "create_replays_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ReplayIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReplayOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/replays/steps": {
+   "get": {
+    "summary": "Steps",
+    "operationId": "steps_replays_steps_get",
+    "parameters": [
+     {
+      "name": "task_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Task Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Step"
+         },
+         "title": "Response Steps Replays Steps Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/replays/{replay_id}": {
+   "get": {
+    "summary": "Get",
+    "operationId": "get_replays__replay_id__get",
+    "parameters": [
+     {
+      "name": "replay_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Replay Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReplayOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/replays/{replay_id}/diff": {
+   "get": {
+    "summary": "Diff",
+    "operationId": "diff_replays__replay_id__diff_get",
+    "parameters": [
+     {
+      "name": "replay_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Replay Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReplayDiff"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/approvals": {
+   "get": {
+    "summary": "List Approvals",
+    "operationId": "list_approvals_approvals_get",
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/ApprovalOut"
+         },
+         "title": "Response List Approvals Approvals Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/approvals/{approval_id}": {
+   "get": {
+    "summary": "Get Approval",
+    "operationId": "get_approval_approvals__approval_id__get",
+    "parameters": [
+     {
+      "name": "approval_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Approval Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApprovalOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/approvals/{approval_id}/decision": {
+   "post": {
+    "summary": "Decide",
+    "operationId": "decide_approvals__approval_id__decision_post",
+    "parameters": [
+     {
+      "name": "approval_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Approval Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Decide Approvals  Approval Id  Decision Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/approvals/{approval_id}/chat": {
+   "post": {
+    "summary": "Chat",
+    "operationId": "chat_approvals__approval_id__chat_post",
+    "parameters": [
+     {
+      "name": "approval_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Approval Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChatIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChatOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/tasks": {
+   "post": {
+    "summary": "Create Task",
+    "operationId": "create_task_tasks_post",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TaskCreate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Create Task Tasks Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "summary": "List Tasks",
+    "operationId": "list_tasks_tasks_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 30,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/TaskSummary"
+         },
+         "title": "Response List Tasks Tasks Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/tasks/{task_id}": {
+   "get": {
+    "summary": "Get Task",
+    "operationId": "get_task_tasks__task_id__get",
+    "parameters": [
+     {
+      "name": "task_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Task Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TaskOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/tasks/{task_id}/events": {
+   "get": {
+    "summary": "Task Events",
+    "operationId": "task_events_tasks__task_id__events_get",
+    "parameters": [
+     {
+      "name": "task_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Task Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "AgentCost": {
+    "properties": {
+     "agent": {
+      "type": "string",
+      "title": "Agent"
+     },
+     "calls": {
+      "type": "integer",
+      "title": "Calls"
+     },
+     "tokens_in": {
+      "type": "integer",
+      "title": "Tokens In"
+     },
+     "tokens_out": {
+      "type": "integer",
+      "title": "Tokens Out"
+     },
+     "cost_usd": {
+      "type": "number",
+      "title": "Cost Usd"
+     }
+    },
+    "type": "object",
+    "required": [
+     "agent",
+     "calls",
+     "tokens_in",
+     "tokens_out",
+     "cost_usd"
+    ],
+    "title": "AgentCost"
+   },
+   "ApprovalOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "task_id": {
+      "type": "string",
+      "title": "Task Id"
+     },
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "level": {
+      "type": "string",
+      "title": "Level"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "context": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Context"
+     },
+     "decision": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decision"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "task_id",
+     "kind",
+     "level",
+     "status",
+     "context",
+     "decision"
+    ],
+    "title": "ApprovalOut"
+   },
+   "Bucket": {
+    "properties": {
+     "calls": {
+      "type": "integer",
+      "title": "Calls",
+      "default": 0
+     },
+     "tokens_in": {
+      "type": "integer",
+      "title": "Tokens In",
+      "default": 0
+     },
+     "tokens_out": {
+      "type": "integer",
+      "title": "Tokens Out",
+      "default": 0
+     },
+     "cost_usd": {
+      "type": "number",
+      "title": "Cost Usd",
+      "default": 0.0
+     }
+    },
+    "type": "object",
+    "title": "Bucket"
+   },
+   "ChatIn": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "title": "Question"
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "ChatIn"
+   },
+   "ChatOut": {
+    "properties": {
+     "answer": {
+      "type": "string",
+      "title": "Answer"
+     },
+     "history": {
+      "items": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "type": "array",
+      "title": "History"
+     }
+    },
+    "type": "object",
+    "required": [
+     "answer",
+     "history"
+    ],
+    "title": "ChatOut"
+   },
+   "CostReport": {
+    "properties": {
+     "per_task_type": {
+      "items": {
+       "$ref": "#/components/schemas/TypeCost"
+      },
+      "type": "array",
+      "title": "Per Task Type"
+     },
+     "top_agents": {
+      "items": {
+       "$ref": "#/components/schemas/AgentCost"
+      },
+      "type": "array",
+      "title": "Top Agents"
+     },
+     "tool_usage": {
+      "items": {
+       "$ref": "#/components/schemas/ToolUsage"
+      },
+      "type": "array",
+      "title": "Tool Usage"
+     },
+     "escalation_trend": {
+      "items": {
+       "$ref": "#/components/schemas/EscalationDay"
+      },
+      "type": "array",
+      "title": "Escalation Trend"
+     }
+    },
+    "type": "object",
+    "required": [
+     "per_task_type",
+     "top_agents",
+     "tool_usage",
+     "escalation_trend"
+    ],
+    "title": "CostReport"
+   },
+   "EscalationDay": {
+    "properties": {
+     "day": {
+      "type": "string",
+      "title": "Day"
+     },
+     "tasks": {
+      "type": "integer",
+      "title": "Tasks"
+     },
+     "escalated": {
+      "type": "integer",
+      "title": "Escalated"
+     },
+     "rate": {
+      "type": "number",
+      "title": "Rate"
+     }
+    },
+    "type": "object",
+    "required": [
+     "day",
+     "tasks",
+     "escalated",
+     "rate"
+    ],
+    "title": "EscalationDay"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "LLMDetail": {
+    "properties": {
+     "role": {
+      "type": "string",
+      "title": "Role"
+     },
+     "model": {
+      "type": "string",
+      "title": "Model"
+     },
+     "schema_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Schema Name"
+     },
+     "messages": {
+      "items": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Messages"
+     },
+     "response": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Response"
+     },
+     "cache_hit": {
+      "type": "boolean",
+      "title": "Cache Hit"
+     }
+    },
+    "type": "object",
+    "required": [
+     "role",
+     "model",
+     "schema_name",
+     "messages",
+     "response",
+     "cache_hit"
+    ],
+    "title": "LLMDetail"
+   },
+   "MemoryDashboard": {
+    "properties": {
+     "user_id": {
+      "type": "string",
+      "title": "User Id"
+     },
+     "counts": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Counts"
+     },
+     "groups": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/MemoryItem"
+       },
+       "type": "array"
+      },
+      "type": "object",
+      "title": "Groups"
+     }
+    },
+    "type": "object",
+    "required": [
+     "user_id",
+     "counts",
+     "groups"
+    ],
+    "title": "MemoryDashboard"
+   },
+   "MemoryItem": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "collection": {
+      "type": "string",
+      "title": "Collection"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "user_id": {
+      "type": "string",
+      "title": "User Id"
+     },
+     "repo": {
+      "type": "string",
+      "title": "Repo",
+      "default": ""
+     },
+     "type": {
+      "type": "string",
+      "title": "Type"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "last_accessed": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Last Accessed"
+     },
+     "importance": {
+      "type": "number",
+      "title": "Importance"
+     },
+     "access_count": {
+      "type": "integer",
+      "title": "Access Count",
+      "default": 0
+     },
+     "feedback": {
+      "type": "number",
+      "title": "Feedback",
+      "default": 0.0
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "collection",
+     "text",
+     "user_id",
+     "type",
+     "created_at",
+     "last_accessed",
+     "importance"
+    ],
+    "title": "MemoryItem"
+   },
+   "Override": {
+    "properties": {
+     "step": {
+      "type": "integer",
+      "title": "Step"
+     },
+     "value": {
+      "title": "Value"
+     }
+    },
+    "type": "object",
+    "required": [
+     "step",
+     "value"
+    ],
+    "title": "Override"
+   },
+   "ReplayDiff": {
+    "properties": {
+     "replay_id": {
+      "type": "string",
+      "title": "Replay Id"
+     },
+     "source_task_id": {
+      "type": "string",
+      "title": "Source Task Id"
+     },
+     "overridden_steps": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Overridden Steps"
+     },
+     "diverged": {
+      "type": "boolean",
+      "title": "Diverged"
+     },
+     "changed_steps": {
+      "items": {
+       "$ref": "#/components/schemas/StepChange"
+      },
+      "type": "array",
+      "title": "Changed Steps"
+     },
+     "added_steps": {
+      "items": {
+       "$ref": "#/components/schemas/StepChange"
+      },
+      "type": "array",
+      "title": "Added Steps"
+     },
+     "removed_steps": {
+      "items": {
+       "$ref": "#/components/schemas/StepChange"
+      },
+      "type": "array",
+      "title": "Removed Steps"
+     },
+     "unchanged_steps": {
+      "type": "integer",
+      "title": "Unchanged Steps"
+     },
+     "live_calls": {
+      "type": "integer",
+      "title": "Live Calls"
+     },
+     "cost": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "type": "object",
+      "title": "Cost"
+     },
+     "status": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Status"
+     },
+     "report_changed": {
+      "type": "boolean",
+      "title": "Report Changed"
+     }
+    },
+    "type": "object",
+    "required": [
+     "replay_id",
+     "source_task_id",
+     "overridden_steps",
+     "diverged",
+     "changed_steps",
+     "added_steps",
+     "removed_steps",
+     "unchanged_steps",
+     "live_calls",
+     "cost",
+     "status",
+     "report_changed"
+    ],
+    "title": "ReplayDiff"
+   },
+   "ReplayIn": {
+    "properties": {
+     "task_id": {
+      "type": "string",
+      "title": "Task Id"
+     },
+     "overrides": {
+      "items": {
+       "$ref": "#/components/schemas/Override"
+      },
+      "type": "array",
+      "title": "Overrides",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "task_id"
+    ],
+    "title": "ReplayIn"
+   },
+   "ReplayOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "source_task_id": {
+      "type": "string",
+      "title": "Source Task Id"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "live_calls": {
+      "type": "integer",
+      "title": "Live Calls"
+     },
+     "cost_usd": {
+      "type": "number",
+      "title": "Cost Usd"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "result": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Result"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "source_task_id",
+     "status",
+     "live_calls",
+     "cost_usd",
+     "error",
+     "result"
+    ],
+    "title": "ReplayOut"
+   },
+   "SpanDetail": {
+    "properties": {
+     "span_id": {
+      "type": "string",
+      "title": "Span Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "llm": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LLMDetail"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "tool": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ToolDetail"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "span_id",
+     "name"
+    ],
+    "title": "SpanDetail",
+    "description": "What a node's drawer shows: the full prompt/response or tool input/output behind a span."
+   },
+   "Step": {
+    "properties": {
+     "index": {
+      "type": "integer",
+      "title": "Index"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "llm",
+       "tool"
+      ],
+      "title": "Kind"
+     },
+     "agent": {
+      "type": "string",
+      "title": "Agent"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "subtask": {
+      "type": "string",
+      "title": "Subtask"
+     },
+     "ordinal": {
+      "type": "integer",
+      "title": "Ordinal"
+     },
+     "key": {
+      "type": "string",
+      "title": "Key"
+     },
+     "input_preview": {
+      "type": "string",
+      "title": "Input Preview"
+     },
+     "raw_input": {
+      "type": "string",
+      "title": "Raw Input",
+      "default": ""
+     },
+     "output": {
+      "title": "Output"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "model": {
+      "type": "string",
+      "title": "Model",
+      "default": ""
+     },
+     "tokens_in": {
+      "type": "integer",
+      "title": "Tokens In",
+      "default": 0
+     },
+     "tokens_out": {
+      "type": "integer",
+      "title": "Tokens Out",
+      "default": 0
+     },
+     "cost_usd": {
+      "type": "number",
+      "title": "Cost Usd",
+      "default": 0.0
+     }
+    },
+    "type": "object",
+    "required": [
+     "index",
+     "kind",
+     "agent",
+     "name",
+     "subtask",
+     "ordinal",
+     "key",
+     "input_preview",
+     "output"
+    ],
+    "title": "Step",
+    "description": "One recorded decision: a model call or a tool call."
+   },
+   "StepChange": {
+    "properties": {
+     "identity": {
+      "type": "string",
+      "title": "Identity"
+     },
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "agent": {
+      "type": "string",
+      "title": "Agent"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "before": {
+      "title": "Before"
+     },
+     "after": {
+      "title": "After"
+     }
+    },
+    "type": "object",
+    "required": [
+     "identity",
+     "kind",
+     "agent",
+     "name"
+    ],
+    "title": "StepChange"
+   },
+   "StepOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description"
+     },
+     "specialist": {
+      "type": "string",
+      "title": "Specialist"
+     },
+     "depends_on": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Depends On"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "description",
+     "specialist",
+     "depends_on",
+     "status"
+    ],
+    "title": "StepOut"
+   },
+   "TaskCost": {
+    "properties": {
+     "task_id": {
+      "type": "string",
+      "title": "Task Id"
+     },
+     "llm_calls": {
+      "type": "integer",
+      "title": "Llm Calls"
+     },
+     "tokens_in": {
+      "type": "integer",
+      "title": "Tokens In"
+     },
+     "tokens_out": {
+      "type": "integer",
+      "title": "Tokens Out"
+     },
+     "cost_usd": {
+      "type": "number",
+      "title": "Cost Usd"
+     },
+     "by_agent": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/Bucket"
+      },
+      "type": "object",
+      "title": "By Agent"
+     },
+     "by_model": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/Bucket"
+      },
+      "type": "object",
+      "title": "By Model"
+     },
+     "tool_calls": {
+      "type": "integer",
+      "title": "Tool Calls"
+     },
+     "tool_calls_by_tool": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Tool Calls By Tool"
+     },
+     "wall_clock_seconds": {
+      "type": "number",
+      "title": "Wall Clock Seconds"
+     },
+     "human_review_seconds": {
+      "type": "number",
+      "title": "Human Review Seconds"
+     }
+    },
+    "type": "object",
+    "required": [
+     "task_id",
+     "llm_calls",
+     "tokens_in",
+     "tokens_out",
+     "cost_usd",
+     "by_agent",
+     "by_model",
+     "tool_calls",
+     "tool_calls_by_tool",
+     "wall_clock_seconds",
+     "human_review_seconds"
+    ],
+    "title": "TaskCost"
+   },
+   "TaskCreate": {
+    "properties": {
+     "request": {
+      "type": "string",
+      "title": "Request"
+     },
+     "repo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Repo"
+     },
+     "pr_number": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pr Number"
+     },
+     "snapshot_dir": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Snapshot Dir"
+     },
+     "user_id": {
+      "type": "string",
+      "title": "User Id",
+      "default": "default"
+     },
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Labels",
+      "default": []
+     },
+     "head_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Head Ref"
+     },
+     "review_required": {
+      "type": "boolean",
+      "title": "Review Required",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "request"
+    ],
+    "title": "TaskCreate"
+   },
+   "TaskOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "request": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Request"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "needs_human": {
+      "type": "boolean",
+      "title": "Needs Human"
+     },
+     "escalation_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Escalation Reason"
+     },
+     "report": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Report"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/StepOut"
+      },
+      "type": "array",
+      "title": "Steps"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "request",
+     "status",
+     "needs_human",
+     "escalation_reason",
+     "report",
+     "error",
+     "steps"
+    ],
+    "title": "TaskOut"
+   },
+   "TaskSummary": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "request": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Request"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "status",
+     "request",
+     "created_at"
+    ],
+    "title": "TaskSummary"
+   },
+   "ToolDetail": {
+    "properties": {
+     "tool": {
+      "type": "string",
+      "title": "Tool"
+     },
+     "inputs": {
+      "title": "Inputs"
+     },
+     "outputs": {
+      "title": "Outputs"
+     },
+     "success": {
+      "type": "boolean",
+      "title": "Success"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     }
+    },
+    "type": "object",
+    "required": [
+     "tool",
+     "inputs",
+     "outputs",
+     "success",
+     "error"
+    ],
+    "title": "ToolDetail"
+   },
+   "ToolUsage": {
+    "properties": {
+     "tool": {
+      "type": "string",
+      "title": "Tool"
+     },
+     "calls": {
+      "type": "integer",
+      "title": "Calls"
+     },
+     "errors": {
+      "type": "integer",
+      "title": "Errors"
+     },
+     "avg_latency_ms": {
+      "type": "number",
+      "title": "Avg Latency Ms"
+     }
+    },
+    "type": "object",
+    "required": [
+     "tool",
+     "calls",
+     "errors",
+     "avg_latency_ms"
+    ],
+    "title": "ToolUsage"
+   },
+   "TraceNode": {
+    "properties": {
+     "span_id": {
+      "type": "string",
+      "title": "Span Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "agent": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Agent"
+     },
+     "role": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role"
+     },
+     "model": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Model"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "duration_ms": {
+      "type": "number",
+      "title": "Duration Ms"
+     },
+     "tokens_in": {
+      "type": "integer",
+      "title": "Tokens In"
+     },
+     "tokens_out": {
+      "type": "integer",
+      "title": "Tokens Out"
+     },
+     "cost_usd": {
+      "type": "number",
+      "title": "Cost Usd"
+     },
+     "subtree_cost_usd": {
+      "type": "number",
+      "title": "Subtree Cost Usd"
+     },
+     "llm_call_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Llm Call Id"
+     },
+     "attributes": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Attributes"
+     },
+     "children": {
+      "items": {
+       "$ref": "#/components/schemas/TraceNode"
+      },
+      "type": "array",
+      "title": "Children",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "span_id",
+     "name",
+     "agent",
+     "role",
+     "model",
+     "status",
+     "error",
+     "duration_ms",
+     "tokens_in",
+     "tokens_out",
+     "cost_usd",
+     "subtree_cost_usd",
+     "attributes"
+    ],
+    "title": "TraceNode"
+   },
+   "TraceTree": {
+    "properties": {
+     "task_id": {
+      "type": "string",
+      "title": "Task Id"
+     },
+     "span_count": {
+      "type": "integer",
+      "title": "Span Count"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "total_cost_usd": {
+      "type": "number",
+      "title": "Total Cost Usd"
+     },
+     "roots": {
+      "items": {
+       "$ref": "#/components/schemas/TraceNode"
+      },
+      "type": "array",
+      "title": "Roots"
+     }
+    },
+    "type": "object",
+    "required": [
+     "task_id",
+     "span_count",
+     "status",
+     "total_cost_usd",
+     "roots"
+    ],
+    "title": "TraceTree"
+   },
+   "TypeCost": {
+    "properties": {
+     "task_type": {
+      "type": "string",
+      "title": "Task Type"
+     },
+     "tasks": {
+      "type": "integer",
+      "title": "Tasks"
+     },
+     "cost_usd": {
+      "type": "number",
+      "title": "Cost Usd"
+     },
+     "avg_cost_usd": {
+      "type": "number",
+      "title": "Avg Cost Usd"
+     },
+     "tokens": {
+      "type": "integer",
+      "title": "Tokens"
+     }
+    },
+    "type": "object",
+    "required": [
+     "task_type",
+     "tasks",
+     "cost_usd",
+     "avg_cost_usd",
+     "tokens"
+    ],
+    "title": "TypeCost"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}

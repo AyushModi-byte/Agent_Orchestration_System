@@ -31,7 +31,18 @@ services:
       retries: 10
   # api:    (later phase)
   # worker: (later phase)
-  # web:    (later phase)
+  web:
+    build: ./web
+    ports: ["8080:80"]
+    environment:
+      # where the API runs; start it with `CONDUCTOR_FAKE_LLM=1 uvicorn conductor.api.main:app`
+      API_UPSTREAM: ${API_UPSTREAM:-http://host.docker.internal:8000}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 volumes:
   pgdata:
   chroma:

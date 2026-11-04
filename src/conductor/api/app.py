@@ -6,6 +6,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator, Callable
+from datetime import datetime
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -46,8 +47,16 @@ class StepOut(BaseModel):
     status: str
 
 
+class TaskSummary(BaseModel):
+    id: str
+    status: str
+    request: dict[str, Any]
+    created_at: datetime
+
+
 class TaskOut(BaseModel):
     id: str
+    request: dict[str, Any]
     status: str
     needs_human: bool
     escalation_reason: str | None
@@ -86,6 +95,15 @@ def create_app(
         enqueue(tid)
         return {"id": tid, "status": "queued"}
 
+    @app.get("/tasks")
+    def list_tasks(limit: int = 30) -> list[TaskSummary]:
+        with session_factory() as s:
+            rows = s.query(Task).order_by(Task.created_at.desc()).limit(min(limit, 200)).all()
+            return [
+                TaskSummary(id=t.id, status=t.status, request=t.request, created_at=t.created_at)
+                for t in rows
+            ]
+
     @app.get("/tasks/{task_id}")
     def get_task(task_id: str) -> TaskOut:
         with session_factory() as s:
@@ -95,6 +113,7 @@ def create_app(
             steps = s.query(PlanStep).filter(PlanStep.task_id == task_id).order_by(PlanStep.pk)
             return TaskOut(
                 id=t.id,
+                request=t.request,
                 status=t.status,
                 needs_human=t.needs_human,
                 escalation_reason=t.escalation_reason,

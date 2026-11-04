@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+/* Design tokens. Light is the default; dark follows the OS unless the user picked a theme. */
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #efede7;
+  --border: #e1ded5;
+  --ink: #17181c;
+  --ink-2: #4a4d57;
+  --ink-3: #6b6f7b;
+  --accent: #4338ca;
+  --accent-ink: #ffffff;
+  --accent-soft: #e8e7fb;
+  --success: #15803d;
+  --success-soft: #dcf2e3;
+  --warning: #b45309;
+  --warning-soft: #fbecd0;
+  --failure: #b91c1c;
+  --failure-soft: #fbdede;
+  --escalated: #7e22ce;
+  --escalated-soft: #f0e0fb;
+  --info: #0f6ea8;
+  --info-soft: #dbeefa;
+  --shadow: 0 1px 2px rgb(20 20 30 / 6%), 0 4px 16px rgb(20 20 30 / 5%);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e0f13;
+    --surface: #16181d;
+    --surface-2: #1d2027;
+    --border: #2a2e37;
+    --ink: #eceef2;
+    --ink-2: #b2b6c1;
+    --ink-3: #8b909e;
+    --accent: #8b8cf6;
+    --accent-ink: #0e0f13;
+    --accent-soft: #24264a;
+    --success: #4ade80;
+    --success-soft: #11301d;
+    --warning: #fbbf24;
+    --warning-soft: #36280c;
+    --failure: #f87171;
+    --failure-soft: #3a1515;
+    --escalated: #c084fc;
+    --escalated-soft: #2d1747;
+    --info: #5cb8ee;
+    --info-soft: #0f2a3c;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 16px rgb(0 0 0 / 30%);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e0f13;
+  --surface: #16181d;
+  --surface-2: #1d2027;
+  --border: #2a2e37;
+  --ink: #eceef2;
+  --ink-2: #b2b6c1;
+  --ink-3: #8b909e;
+  --accent: #8b8cf6;
+  --accent-ink: #0e0f13;
+  --accent-soft: #24264a;
+  --success: #4ade80;
+  --success-soft: #11301d;
+  --warning: #fbbf24;
+  --warning-soft: #36280c;
+  --failure: #f87171;
+  --failure-soft: #3a1515;
+  --escalated: #c084fc;
+  --escalated-soft: #2d1747;
+  --info: #5cb8ee;
+  --info-soft: #0f2a3c;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 16px rgb(0 0 0 / 30%);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-failure: var(--failure);
+  --color-failure-soft: var(--failure-soft);
+  --color-escalated: var(--escalated);
+  --color-escalated-soft: var(--escalated-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --shadow-card: var(--shadow);
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  min-height: 100vh;
+}
+h1,
+h2,
+h3 {
+  letter-spacing: -0.015em;
+}
+::selection {
+  background: var(--accent-soft);
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+button,
+select,
+input,
+textarea {
+  font: inherit;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* React Flow, tinted to the theme */
+.react-flow {
+  --xy-background-color: var(--surface);
+  --xy-edge-stroke: var(--ink-3);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-color: var(--ink);
+  --xy-controls-button-border-color: var(--border);
+  --xy-minimap-background-color: var(--surface-2);
+  --xy-attribution-background-color: transparent;
+}
+.react-flow__attribution {
+  font-size: 10px;
+  opacity: 0.6;
+}
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--info) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+.live-dot {
+  animation: pulse-ring 1.6s ease-out infinite;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 8px;
+}
