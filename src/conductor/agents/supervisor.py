@@ -58,12 +58,23 @@ class Supervisor:
         self._llm = llm
         self._attempts = max_plan_attempts
 
-    async def plan(self, task: dict[str, Any], retrieved_memories: list[str]) -> ExecutionPlan:
+    async def plan(
+        self,
+        task: dict[str, Any],
+        retrieved_memories: list[str],
+        human_feedback: list[str] | None = None,
+    ) -> ExecutionPlan:
         msgs = [
             {"role": "system", "content": load_prompt("planner")},
             {
                 "role": "user",
-                "content": json.dumps({"request": task, "memories": retrieved_memories}),
+                "content": json.dumps(
+                    {
+                        "request": task,
+                        "memories": retrieved_memories,
+                        "human_feedback": human_feedback or [],
+                    }
+                ),
             },
         ]
         error = ""

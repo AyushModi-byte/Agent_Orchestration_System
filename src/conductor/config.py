@@ -47,10 +47,22 @@ class Escalation(BaseModel):
     min_reviewer_score: float
     max_specialist_retries: int
     max_reviewer_rejections: int
+    repeated_failure_threshold: int = 2
+    max_human_rejections: int = 3
+
+
+class Sensitive(BaseModel):
+    tools: list[str] = []
+    name_patterns: list[str] = []
+    production_label: str = "production"
 
 
 class PoliciesConfig(BaseModel):
     escalation: Escalation
+    triggers: dict[str, str] = {}
+    actions: dict[str, str] = {}
+    repo_labels: dict[str, str] = {}
+    sensitive: Sensitive = Sensitive()
 
 
 class Price(BaseModel):

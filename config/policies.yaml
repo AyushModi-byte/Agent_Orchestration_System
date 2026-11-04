@@ -1,13 +1,37 @@
-# Skeleton: filled in by the HITL phase. Thresholds live here, not in code.
+# Escalation thresholds and approval levels. Levels, triggers and sensitive operations live here,
+# not in code (CLAUDE.md). Levels: notify, approve_action, approve_plan, take_over.
 escalation:
   min_plan_confidence: 0.6
   min_reviewer_score: 0.7
   max_specialist_retries: 2
   max_reviewer_rejections: 2
+  repeated_failure_threshold: 2   # a specialist failing this many times on one subtask escalates
+  max_human_rejections: 3         # after this many "reject" decisions the task ends as needs_human
 approval_levels: [notify, approve_action, approve_plan, take_over]
+
+# Which level each trigger demands.
+triggers:
+  merge_request: take_over        # the system never merges; a human does
+  repeated_failure: take_over
+  invalid_plan: approve_plan
+  low_plan_confidence: approve_plan
+  user_requested: approve_plan
+  low_reviewer_score: approve_action
+  retries_exhausted: approve_action
+  sensitive_operation: approve_action
+
+# Level for each outward action the system proposes.
 actions:
   post_review_comment: notify
   push_fix_commit: approve_action
   merge_request: take_over
+
+# A repo carrying one of these labels needs the whole plan approved before any work.
 repo_labels:
   production: approve_plan
+
+# Sensitive operations are always bumped to at least approve_action.
+sensitive:
+  tools: [push_fix_commit]
+  name_patterns: [delete, drop, send, email, webhook, publish]  # deleting data / contacting externally
+  production_label: production                                   # comments here are sensitive

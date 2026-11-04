@@ -13,11 +13,14 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
+from conductor.api.routes.approvals import make_router as make_approvals_router
 from conductor.api.routes.memory import make_router as make_memory_router
 from conductor.db.models import PlanStep, Task, TaskEvent
+from conductor.hitl.queue import ApprovalQueue
+from conductor.llm.types import LLM
 from conductor.memory.longterm import LongTermStore
 
-TERMINAL = {"completed", "needs_human", "failed"}
+TERMINAL = {"completed", "needs_human", "failed", "taken_over"}
 
 
 class TaskCreate(BaseModel):
@@ -26,6 +29,9 @@ class TaskCreate(BaseModel):
     pr_number: int | None = None
     snapshot_dir: str | None = None
     user_id: str = "default"
+    labels: list[str] = []
+    head_ref: str | None = None
+    review_required: bool = False
 
 
 class StepOut(BaseModel):
@@ -51,10 +57,16 @@ def create_app(
     enqueue: Callable[[str], None],
     poll_interval: float = 0.2,
     memory_store: LongTermStore | None = None,
+    enqueue_resume: Callable[[str, str], None] | None = None,
+    llm: LLM | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Conductor")
     if memory_store is not None:
         app.include_router(make_memory_router(memory_store))
+    if enqueue_resume is not None:
+        app.include_router(
+            make_approvals_router(ApprovalQueue(session_factory), enqueue_resume, memory_store, llm)
+        )
 
     @app.post("/tasks", status_code=202)
     def create_task(body: TaskCreate) -> dict[str, str]:

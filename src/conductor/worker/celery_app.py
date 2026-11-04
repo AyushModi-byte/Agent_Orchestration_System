@@ -16,6 +16,7 @@ from conductor.memory.working import WorkingMemory
 from conductor.tools import deps, github, linters  # noqa: F401  (import registers tools)
 from conductor.tools.registry import default_registry
 from conductor.worker.runner import Runtime, execute_task
+from conductor.worker.runner import resume_task as resume_execution
 
 celery = Celery(
     "conductor",
@@ -56,6 +57,12 @@ def get_runtime() -> Runtime:
 @celery.task(name="conductor.run_task")  # type: ignore[untyped-decorator]
 def run_task(task_id: str) -> None:
     asyncio.run(execute_task(task_id, get_runtime()))
+
+
+@celery.task(name="conductor.resume_task")  # type: ignore[untyped-decorator]
+def resume_task(task_id: str, approval_id: str) -> None:
+    """Continue a paused run after a human decision; works from any worker via the checkpoint."""
+    asyncio.run(resume_execution(task_id, approval_id, get_runtime()))
 
 
 @celery.task(name="conductor.maintain_memory")  # type: ignore[untyped-decorator]

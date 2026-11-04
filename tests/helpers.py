@@ -68,6 +68,30 @@ def make_registry(barrier: int = 0) -> ToolRegistry:
     async def run_tests(args: Any) -> dict[str, Any]:
         return {"passed": 3, "failed": 0, "errors": 0, "findings": []}
 
+    reg.calls = []  # type: ignore[attr-defined]
+
+    @reg.tool(
+        name="post_review_comment",
+        description="comment",
+        input_schema=AnyIn,
+        output_schema=AnyOut,
+        allowed_agents={"supervisor", "reviewer"},
+    )
+    async def post_review_comment(args: Any) -> dict[str, Any]:
+        reg.calls.append(("post_review_comment", args.model_dump()))  # type: ignore[attr-defined]
+        return {"dry_run": True}
+
+    @reg.tool(
+        name="push_fix_commit",
+        description="push",
+        input_schema=AnyIn,
+        output_schema=AnyOut,
+        allowed_agents={"fix_writer"},
+    )
+    async def push_fix_commit(args: Any) -> dict[str, Any]:
+        reg.calls.append(("push_fix_commit", args.model_dump()))  # type: ignore[attr-defined]
+        return {"dry_run": True}
+
     return reg
 
 
@@ -95,7 +119,8 @@ FINDING_FOR = {"code_analysis": ("a.py", 3), "security": ("b.py", 9)}
 
 class Behavior:
     """Drives specialists/reviewer by subtask id. fail_first: specialist emits junk on its first
-    attempt. reject_first: reviewer rejects the first reviewed run."""
+    attempt. always_fail: junk on every attempt. reject_first: reviewer rejects the first
+    reviewed run. fixes: attached to the output of subtask s1."""
 
     def __init__(
         self,
@@ -103,11 +128,15 @@ class Behavior:
         fail_first: set[str] | None = None,
         reject_first: set[str] | None = None,
         bad_citation: set[str] | None = None,
+        always_fail: set[str] | None = None,
+        fixes: list[dict[str, Any]] | None = None,
     ) -> None:
         self.plan = plan
         self.fail_first = fail_first or set()
         self.reject_first = reject_first or set()
         self.bad_citation = bad_citation or set()
+        self.always_fail = always_fail or set()
+        self.fixes = fixes or []
         self.attempts: dict[str, int] = {}
         self.reviews: dict[str, int] = {}
 
@@ -129,7 +158,7 @@ class Behavior:
         sid, spec = sub["id"], sub["specialist"]
         if "observation" not in last:
             self.attempts[sid] = self.attempts.get(sid, 0) + 1
-            if sid in self.fail_first and self.attempts[sid] == 1:
+            if sid in self.always_fail or (sid in self.fail_first and self.attempts[sid] == 1):
                 return "this is not json"
             return json.dumps({"action": "tool", "tool": TOOL_FOR[spec], "args": {}})
         findings = []
@@ -146,8 +175,11 @@ class Behavior:
                     "evidence": "tool said so",
                 }
             ]
+        output: dict[str, Any] = {"note": sid}
+        if sid == "s1" and self.fixes:
+            output["fixes"] = self.fixes
         return json.dumps(
-            {"action": "final", "output": {"note": sid}, "findings": findings, "confidence": 0.8}
+            {"action": "final", "output": output, "findings": findings, "confidence": 0.8}
         )
 
     def _reviewer(self, last: dict[str, Any]) -> str:
@@ -225,3 +257,34 @@ def make_store(clock=None, **cfg):  # type: ignore[no-untyped-def]
         prefix=uuid.uuid4().hex[:8] + "_",
         **kwargs,
     )
+
+
+def make_graph(b: Behavior, saver=None, barrier: int = 0, wm=None, registry=None, store=None):  # type: ignore[no-untyped-def]
+    """Build a graph over FakeLLM + fake tools. Pass the same saver to two calls to simulate a
+    worker restart (new objects, same durable checkpoints)."""
+    from langgraph.checkpoint.memory import MemorySaver
+
+    from conductor.agents.reviewer import Reviewer
+    from conductor.agents.specialists import build_specialists
+    from conductor.agents.supervisor import Supervisor
+    from conductor.config import load_agents_config, load_policies
+    from conductor.graph.builder import GraphDeps, build_graph
+    from conductor.memory.retrieval import Retriever
+
+    llm = fake_llm(b)
+    reg = registry or make_registry(barrier)
+    policy = load_policies()
+    deps = GraphDeps(
+        supervisor=Supervisor(llm),
+        specialists=build_specialists(llm, reg, load_agents_config()),
+        reviewer=Reviewer(llm, policy.escalation.min_reviewer_score),
+        policy_config=policy,
+        wm=wm,
+        retriever=Retriever(store) if store else None,
+        registry=reg,
+        memory_store=store,
+    )
+    graph = build_graph(deps, saver or MemorySaver())
+    graph.llm = llm  # type: ignore[attr-defined]
+    graph.registry = reg  # type: ignore[attr-defined]
+    return graph

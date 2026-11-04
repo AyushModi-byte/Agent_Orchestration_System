@@ -6,28 +6,13 @@ from typing import Any
 
 import fakeredis
 import pytest
-from langgraph.checkpoint.memory import MemorySaver
-from tests.helpers import Behavior, fake_llm, make_registry, plan_json, step
+from tests.helpers import Behavior, make_graph, plan_json, step
 
-from conductor.agents.reviewer import Reviewer
-from conductor.agents.specialists import build_specialists
-from conductor.agents.supervisor import Supervisor
-from conductor.config import load_agents_config, load_policies
-from conductor.graph.builder import GraphDeps, build_graph
 from conductor.memory.working import WorkingMemory
 
 
 def run_graph(b: Behavior, barrier: int = 0, wm: WorkingMemory | None = None) -> Any:
-    llm = fake_llm(b)
-    policy = load_policies().escalation
-    deps = GraphDeps(
-        supervisor=Supervisor(llm),
-        specialists=build_specialists(llm, make_registry(barrier), load_agents_config()),
-        reviewer=Reviewer(llm, policy.min_reviewer_score),
-        policy=policy,
-        wm=wm,
-    )
-    graph = build_graph(deps, MemorySaver())
+    graph = make_graph(b, barrier=barrier, wm=wm)
     return graph.ainvoke(
         {"task_id": "t1", "request": {"request": "review"}},
         config={"configurable": {"thread_id": "t1"}},
@@ -71,21 +56,23 @@ async def test_reviewer_rejects_once_then_approves_with_feedback() -> None:
 
 async def test_unsupported_citation_is_rejected_until_escalation() -> None:
     out = await run_graph(Behavior(PLAN, bad_citation={"s1"}))
-    assert out["status"] == "needs_human"
+    assert out["__interrupt__"][0].value["kind"] == "failure"  # a human is asked, not the report
     assert out["reject_count"]["s1"] == 3  # initial + 2 retries exhausted the limit
-    assert "report" not in out or out["report"] is None
+    assert out.get("report") is None
 
 
 async def test_cyclic_plan_is_rejected_and_escalated() -> None:
     cyc = plan_json([step("s1", "code_analysis", ["s2"]), step("s2", "security", ["s1"])])
     out = await run_graph(Behavior(cyc))
-    assert out["needs_human"] and "cycle" in out["escalation_reason"]
-    assert out["status"] == "needs_human"
+    ctx = out["__interrupt__"][0].value
+    assert ctx["kind"] == "plan" and "cycle" in ctx["plan_error"]
+    assert "approve" not in ctx["allowed_decisions"]  # there is no plan to approve
 
 
 async def test_low_confidence_plan_escalates() -> None:
     out = await run_graph(Behavior(plan_json([step("s1", "code_analysis")], confidence=0.2)))
-    assert out["status"] == "needs_human" and "confidence" in out["escalation_reason"]
+    ctx = out["__interrupt__"][0].value
+    assert ctx["kind"] == "plan" and ctx["triggers"][0]["name"] == "low_plan_confidence"
 
 
 async def test_independent_subtasks_run_concurrently() -> None:
@@ -127,4 +114,4 @@ async def test_working_memory_holds_state_mid_run() -> None:
 async def test_invalid_dependency_ids_rejected(bad: str) -> None:
     dep = "zzz" if bad == "ghost" else "s1"
     out = await run_graph(Behavior(plan_json([step("s1", "code_analysis", [dep])])))
-    assert out["status"] == "needs_human"
+    assert out["__interrupt__"][0].value["kind"] == "plan"

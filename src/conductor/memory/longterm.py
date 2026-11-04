@@ -151,6 +151,28 @@ class LongTermStore:
             it.importance = importance_score(it, now, self.cfg)
             self._write_meta(it)
 
+    def get_item(self, collection: str, id_: str) -> MemoryItem | None:
+        res = self._cols[collection].get(ids=[id_], include=["documents", "metadatas"])
+        if not res["ids"]:
+            return None
+        return self._item(
+            collection, id_, (res["documents"] or [""])[0], (res["metadatas"] or [{}])[0]
+        )
+
+    def apply_feedback(self, collection: str, id_: str, delta: float) -> None:
+        """Nudge human-feedback weight (clamped to [-1, 1]) and refresh importance."""
+        it = self.get_item(collection, id_)
+        if it is None:
+            return
+        it.feedback = max(-1.0, min(1.0, it.feedback + delta))
+        it.importance = importance_score(it, self.now(), self.cfg)
+        self._write_meta(it)
+        with self._sf() as s:
+            row = s.get(MemoryMeta, id_)
+            if row is not None:
+                row.feedback = it.feedback
+                s.commit()
+
     def set_importance(self, item: MemoryItem, value: float) -> None:
         item.importance = value
         self._write_meta(item)

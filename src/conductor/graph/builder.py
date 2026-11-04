@@ -1,7 +1,10 @@
-"""LangGraph state machine: intake, plan, dispatch (Send), review, synthesize, deliver.
+"""LangGraph state machine.
+
+intake -> plan -> [gate_plan] -> dispatch (Send) -> review -> synthesize -> act -> deliver,
+with `escalate` for stuck work. Gates pause via interrupt() and resume from the checkpoint.
 
 State holds plain dicts (not Pydantic objects) so any checkpointer, including Postgres, can
-serialise it. Retry and escalation limits come from config/policies.yaml.
+serialise it. Thresholds and levels come from config/policies.yaml.
 """
 
 from __future__ import annotations
@@ -23,16 +26,25 @@ from conductor.agents.schemas import (
 )
 from conductor.agents.specialists.base import Specialist, SpecialistError
 from conductor.agents.supervisor import PlanValidationError, Supervisor
-from conductor.config import Escalation
+from conductor.config import PoliciesConfig
+from conductor.graph.gates import Gates
+from conductor.hitl.triggers import evaluate
+from conductor.memory.longterm import LongTermStore
 from conductor.memory.retrieval import Retriever
 from conductor.memory.working import WorkingMemory
+from conductor.tools.registry import ToolRegistry
 
 
 def _merge(a: dict[str, Any] | None, b: dict[str, Any] | None) -> dict[str, Any]:
+    """Merge dict updates from parallel branches; {"__reset__": True, ...} replaces instead."""
+    if b and b.get("__reset__"):
+        return {k: v for k, v in b.items() if k != "__reset__"}
     return {**(a or {}), **(b or {})}
 
 
 def _add_counts(a: dict[str, int] | None, b: dict[str, int] | None) -> dict[str, int]:
+    if b and b.get("__reset__"):
+        return {k: v for k, v in b.items() if k != "__reset__"}
     out = dict(a or {})
     for k, v in (b or {}).items():
         out[k] = out.get(k, 0) + v
@@ -43,7 +55,10 @@ class GraphState(TypedDict, total=False):
     task_id: str
     request: dict[str, Any]
     memories: list[str]
+    memory_refs: list[list[str]]
     plan: dict[str, Any] | None
+    plan_error: str | None
+    plan_feedback: Annotated[list[str], operator.add]
     results: Annotated[dict[str, Any], _merge]
     verdicts: Annotated[dict[str, Any], _merge]
     fail_count: Annotated[dict[str, int], _add_counts]
@@ -51,6 +66,13 @@ class GraphState(TypedDict, total=False):
     hints: Annotated[dict[str, str], _merge]
     feedback: Annotated[dict[str, str], _merge]
     events: Annotated[list[dict[str, Any]], operator.add]
+    human_feedback: Annotated[list[dict[str, Any]], operator.add]
+    human_rejections: int
+    actions: list[dict[str, Any]] | None
+    action_idx: int
+    next_step: str
+    taken_over: bool
+    final_status: str | None
     status: str
     needs_human: bool
     escalation_reason: str | None
@@ -62,9 +84,11 @@ class GraphDeps:
     supervisor: Supervisor
     specialists: dict[str, Specialist]
     reviewer: Reviewer
-    policy: Escalation
+    policy_config: PoliciesConfig
     wm: WorkingMemory | None = None
     retriever: Retriever | None = None
+    registry: ToolRegistry | None = None  # for outward actions (post comment, push fix)
+    memory_store: LongTermStore | None = None  # for "similar past decisions" in approvals
 
 
 def _ev(type_: str, **data: Any) -> dict[str, Any]:
@@ -78,38 +102,49 @@ def _approved(state: GraphState, sid: str) -> bool:
 
 
 def build_graph(deps: GraphDeps, checkpointer: Any = None) -> Any:
-    pol = deps.policy
+    pol = deps.policy_config.escalation
+    gates = Gates(deps)
 
     async def intake(state: GraphState) -> dict[str, Any]:
         memories = state.get("memories", [])
+        refs: list[list[str]] = []
         if deps.retriever is not None:
             req = state["request"]
-            section = deps.retriever.retrieve(
+            got = deps.retriever.retrieve(
                 req.get("request", ""), req.get("repo") or "", req.get("user_id", "default")
-            ).format()
+            )
+            section = got.format()
             memories = [section] if section else []
+            refs = [[it.collection, it.id] for it in got.all_items()]
         return {
             "memories": memories,
+            "memory_refs": refs,
             "status": "running",
             "events": [_ev("intake", task_id=state["task_id"], memories=len(memories))],
         }
 
+    def route_after_intake(state: GraphState) -> str:
+        # a merge request goes straight to a human; the system never merges
+        return "escalate" if evaluate(dict(state), deps.policy_config, "intake") else "plan"
+
     async def plan(state: GraphState) -> dict[str, Any]:
         try:
-            p = await deps.supervisor.plan(state["request"], state.get("memories", []))
+            p = await deps.supervisor.plan(
+                state["request"], state.get("memories", []), state.get("plan_feedback") or []
+            )
         except PlanValidationError as exc:
             return {
-                "needs_human": True,
-                "escalation_reason": f"plan invalid: {exc}",
+                "plan": None,
+                "plan_error": str(exc),
                 "events": [_ev("plan_failed", error=str(exc))],
             }
         if deps.wm:
             deps.wm.set_plan(state["task_id"], p.model_dump())
-        out: dict[str, Any] = {"plan": p.model_dump(), "events": [_ev("plan", steps=len(p.steps))]}
-        if p.confidence < pol.min_plan_confidence:
-            out["needs_human"] = True
-            out["escalation_reason"] = f"low plan confidence {p.confidence:.2f}"
-        return out
+        return {
+            "plan": p.model_dump(),
+            "plan_error": None,
+            "events": [_ev("plan", steps=len(p.steps))],
+        }
 
     def route_work(state: GraphState) -> list[Send] | str:
         p = ExecutionPlan.model_validate(state["plan"])
@@ -122,7 +157,7 @@ def build_graph(deps: GraphDeps, checkpointer: Any = None) -> Any:
             if s.id in done:
                 continue
             if (
-                state.get("fail_count", {}).get(s.id, 0) > pol.max_specialist_retries
+                state.get("fail_count", {}).get(s.id, 0) >= pol.repeated_failure_threshold
                 or state.get("reject_count", {}).get(s.id, 0) > pol.max_reviewer_rejections
             ):
                 exhausted = True
@@ -148,9 +183,16 @@ def build_graph(deps: GraphDeps, checkpointer: Any = None) -> Any:
         return sends
 
     def route_after_plan(state: GraphState) -> list[Send] | str:
-        if state.get("needs_human"):
-            return "escalate"
+        if evaluate(dict(state), deps.policy_config, "plan"):
+            return "gate_plan"
         return route_work(state)
+
+    def route_next(state: GraphState) -> list[Send] | str:
+        """After any gate: where did the human's decision send us?"""
+        step = state.get("next_step", "dispatch")
+        if step == "dispatch":
+            return route_work(state)
+        return step
 
     async def run_subtask(payload: dict[str, Any]) -> dict[str, Any]:
         sub = Subtask.model_validate(payload["subtask"])
@@ -200,16 +242,6 @@ def build_graph(deps: GraphDeps, checkpointer: Any = None) -> Any:
                 out["feedback"][v.subtask_id] = v.feedback
         return out
 
-    async def escalate(state: GraphState) -> dict[str, Any]:
-        # Stub: real human-in-the-loop interrupt arrives in the HITL phase.
-        reason = state.get("escalation_reason") or "retries exhausted"
-        return {
-            "needs_human": True,
-            "escalation_reason": reason,
-            "status": "needs_human",
-            "events": [_ev("escalated", reason=reason)],
-        }
-
     async def synthesize(state: GraphState) -> dict[str, Any]:
         results = {k: SpecialistResult.model_validate(v) for k, v in state["results"].items()}
         verdicts = {k: ReviewVerdict.model_validate(v) for k, v in state["verdicts"].items()}
@@ -219,23 +251,28 @@ def build_graph(deps: GraphDeps, checkpointer: Any = None) -> Any:
     async def deliver(state: GraphState) -> dict[str, Any]:
         if deps.wm:
             deps.wm.clear(state["task_id"])
-        status = "needs_human" if state.get("needs_human") else "completed"
+        status = state.get("final_status") or "completed"
         return {"status": status, "events": [_ev("delivered", status=status)]}
 
     g = StateGraph(GraphState)
     g.add_node("intake", intake)
     g.add_node("plan", plan)
+    g.add_node("gate_plan", gates.gate_plan)  # type: ignore[type-var]
     g.add_node("run_subtask", run_subtask)  # type: ignore[arg-type]
     g.add_node("review", review)
-    g.add_node("escalate", escalate)
+    g.add_node("escalate", gates.escalate)  # type: ignore[type-var]
     g.add_node("synthesize", synthesize)
+    g.add_node("act", gates.act)  # type: ignore[type-var]
     g.add_node("deliver", deliver)
+    targets = ["run_subtask", "escalate", "synthesize", "gate_plan", "plan", "deliver", "act"]
     g.add_edge(START, "intake")
-    g.add_edge("intake", "plan")
-    g.add_conditional_edges("plan", route_after_plan, ["run_subtask", "escalate", "synthesize"])
+    g.add_conditional_edges("intake", route_after_intake, ["escalate", "plan"])
+    g.add_conditional_edges("plan", route_after_plan, targets)
+    g.add_conditional_edges("gate_plan", route_next, targets)
     g.add_edge("run_subtask", "review")
     g.add_conditional_edges("review", route_work, ["run_subtask", "escalate", "synthesize"])
-    g.add_edge("escalate", "deliver")
-    g.add_edge("synthesize", "deliver")
+    g.add_conditional_edges("escalate", route_next, targets)
+    g.add_edge("synthesize", "act")
+    g.add_conditional_edges("act", route_next, targets)
     g.add_edge("deliver", END)
     return g.compile(checkpointer=checkpointer)

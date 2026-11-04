@@ -76,6 +76,30 @@ class MemoryMeta(Base):
     last_accessed: Mapped[datetime] = mapped_column(default=_now)
 
 
+class Approval(Base):
+    """One human gate. id is the LangGraph interrupt id, so re-reading a stream is idempotent."""
+
+    __tablename__ = "approvals"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), index=True)
+    kind: Mapped[str] = mapped_column(String)
+    level: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="pending")  # pending|decided|resolved
+    context: Mapped[dict[str, Any]] = mapped_column(JSON)
+    decision: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    decided_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+
+class ApprovalChat(Base):
+    __tablename__ = "approval_chat"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    approval_id: Mapped[str] = mapped_column(ForeignKey("approvals.id"), index=True)
+    role: Mapped[str] = mapped_column(String)  # human | assistant
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
 class TaskEvent(Base):
     __tablename__ = "task_events"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
