@@ -25,7 +25,8 @@ cd "$WORK/conductor"
 
 step "python environment"
 PYBIN=""
-for c in ${PYTHON:-} python3 python; do   # PYTHON=... overrides   # skip the Windows Store shim, which exists but cannot run
+# PYTHON=... overrides; the Windows Store shim exists but cannot run, so each is tried for real
+for c in "${PYTHON:-}" python3 python; do
   if [ -n "$c" ] && "$c" -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then PYBIN="$c"; break; fi
 done
 [ -n "$PYBIN" ] || { echo "Python 3.11+ is required"; exit 1; }
