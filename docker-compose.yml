@@ -31,13 +31,63 @@ services:
       retries: 10
   # api:    (later phase)
   # worker: (later phase)
+  api:
+    build: .
+    env_file: [{path: .env, required: false}]
+    environment: &app-env
+      DATABASE_URL: postgresql+psycopg://conductor:${POSTGRES_PASSWORD:-conductor}@postgres:5432/conductor
+      CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/1
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+      # 1 = scripted models and canned tools, no quota (the UI demo). 0 = real providers.
+      CONDUCTOR_FAKE_LLM: ${CONDUCTOR_FAKE_LLM:-0}
+      DRY_RUN: ${DRY_RUN:-1}
+    ports: ["8000:8000"]
+    depends_on: &deps
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      chromadb: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+  worker:
+    build: .
+    command: ["celery", "-A", "conductor.worker.celery_app", "worker", "-l", "info", "--concurrency", "2"]
+    env_file: [{path: .env, required: false}]
+    environment: *app-env
+    depends_on: *deps
+    # The sandbox starts sibling containers through the host Docker socket (ADR-007). That is
+    # root-equivalent on the host: fine for a local demo, replace with gVisor/Firecracker in prod.
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
+    group_add: ["${DOCKER_GID:-0}"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A conductor.worker.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+  beat:
+    build: .
+    command: ["celery", "-A", "conductor.worker.celery_app", "beat", "-l", "info", "--pidfile", "/tmp/beat.pid", "-s", "/tmp/beat-schedule"]
+    environment: *app-env
+    depends_on: *deps
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/beat.pid && kill -0 $$(cat /tmp/beat.pid)"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
   web:
     build: ./web
     ports: ["8080:80"]
     environment:
-      # where the API runs; start it with `CONDUCTOR_FAKE_LLM=1 uvicorn conductor.api.main:app`
-      API_UPSTREAM: ${API_UPSTREAM:-http://host.docker.internal:8000}
-    extra_hosts: ["host.docker.internal:host-gateway"]
+      API_UPSTREAM: ${API_UPSTREAM:-http://api:8000}
+    depends_on:
+      api: {condition: service_healthy}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
       interval: 5s

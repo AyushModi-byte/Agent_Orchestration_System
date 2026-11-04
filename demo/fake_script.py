@@ -57,6 +57,27 @@ PLAN = {
     "rationale": "Independent checks first, then a fix that depends on security and test results.",
 }
 
+PLAN_PR1 = {
+    "steps": [
+        {
+            "id": "s1",
+            "description": "[PR 1] Scan for SQL injection and hard-coded secrets",
+            "specialist": "security",
+            "depends_on": [],
+            "complexity": "medium",
+        },
+        {
+            "id": "s2",
+            "description": "[PR 1] Propose a parameterised-query fix for the SQL injection",
+            "specialist": "fix_writer",
+            "depends_on": ["s1"],
+            "complexity": "medium",
+        },
+    ],
+    "confidence": 0.85,
+    "rationale": "A small PR: find the injection, then fix it.",
+}
+
 SEED_MEMORIES: list[tuple[str, str, str]] = [
     (
         "task_memories",
@@ -192,11 +213,11 @@ class DemoScript:
             return json.dumps(PLAN)
         if "request" in last:
             memories = last.get("memories") or []
-            plan = dict(PLAN)
+            plan = dict(PLAN_PR1 if "PR #1" in json.dumps(last["request"]) else PLAN)
             if memories:
                 plan["rationale"] = (
-                    f"{PLAN['rationale']} Recalled {len(memories)} earlier lesson(s) from PR 1: "
-                    "use parameterised queries, not str() wrapping."
+                    f"{plan['rationale']} Recalled {len(memories)} earlier lesson(s): "
+                    f"{memories[0][:140]}"
                 )
             return json.dumps(plan)
         found = last.get("findings", [])
@@ -213,6 +234,7 @@ class DemoScript:
         first = json.loads(messages[1]["content"])
         sub = first["subtask"]["specialist"]
         retry = bool(first.get("feedback") or first.get("hint"))
+        pr1 = "[PR 1]" in first["subtask"]["description"]
         seen = sum(1 for m in messages if m["role"] == "user" and "observation" in m["content"])
         if sub == "code_analysis":
             if seen == 0:
@@ -245,10 +267,10 @@ class DemoScript:
                 return _tool("run_tests", path="tests/")
             return _final({"note": "41 tests pass on the PR head"}, [], 0.9)
         # fix_writer: v1 is the naive patch the memory warns about, v2 follows the PR 1 lesson
-        patch = "v2" if retry else "v1"
+        patch = "v2" if retry or pr1 else "v1"
         if seen == 0:
             return _tool("run_tests", path="tests/", patch=patch)
-        content = FIX_V2 if retry else FIX_V1
+        content = FIX_V2 if retry or pr1 else FIX_V1
         return _final(
             {
                 "note": "parameterise the user lookup",
@@ -259,7 +281,7 @@ class DemoScript:
                         "message": "fix: parameterise user lookup",
                         "reasoning": "Parameterised queries stop injection and keep test_login "
                         "green; the same pattern fixed PR 1."
-                        if retry
+                        if retry or pr1
                         else "Wrap the input in str() before concatenating.",
                     }
                 ],
@@ -276,6 +298,21 @@ class DemoScript:
         if system == load_prompt("memory_merge"):
             texts = json.loads(messages[-1]["content"]).get("memories", [])
             return json.dumps({"text": "; ".join(texts)[:400]})
+        if "PR #1" in messages[-1]["content"]:
+            return json.dumps(
+                {
+                    "what_asked": "Review PR #1 on acme/shop",
+                    "plan_summary": "security scan, then a parameterised-query fix",
+                    "worked": [
+                        "parameterised queries with cursor.execute(sql, params) fixed the "
+                        "SQL injection and kept test_login green"
+                    ],
+                    "failed": [],
+                    "tools_used": ["run_bandit", "run_tests"],
+                    "repo_facts": ["acme/shop keeps all database access in app/db.py"],
+                    "preferences": ["prefers small, single-file fixes"],
+                }
+            )
         return json.dumps(
             {
                 "what_asked": "Review PR #2 on acme/shop",

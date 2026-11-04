@@ -5,7 +5,11 @@ Target: a small Python web app repo on your GitHub account with planted issues: 
 - PR 1: simple SQL-injection fix scenario. Reviewed first; lessons stored in memory.
 - PR 2: main scenario. Supervisor decomposes; specialists run in parallel; the first proposed fix breaks a test; the reviewer rejects it; memory recalls the PR 1 fix pattern; the second fix passes; the push step pauses for human approval; approve; memory saves lessons.
 
-Modes: `make demo ARGS=--fake` (scripted, zero quota) and `LIVE_LLM=1 make demo ARGS=--live` (run once to populate the cache).
+Modes:
+- `make demo` (same as `ARGS=--fake`): scripted, zero quota, no network. Add `ARGS="--fake --yes"` to skip the approval prompt.
+- `LIVE_LLM=1 make demo ARGS=--live`: real models via the gateway, once, to fill `demo/cassettes/demo.llmcache` (commit it). Afterwards `make demo ARGS=--live` replays from the cassette without LIVE_LLM.
+- Seed the target first: `GITHUB_TOKEN=... make seed REPO=you/conductor-demo` (throwaway repo and token only; idempotent), then `export DEMO_REPO=you/conductor-demo`.
+- UI walkthrough with no quota: `make demo-ui`, or `CONDUCTOR_FAKE_LLM=1 make up`.
 
 ## Video script (under 5 minutes)
 1. Architecture diagram, 20 seconds: supervisor, specialists, reviewer, memory, human gate.

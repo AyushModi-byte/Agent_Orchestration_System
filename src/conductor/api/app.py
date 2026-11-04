@@ -86,6 +86,10 @@ def create_app(
             make_approvals_router(ApprovalQueue(session_factory), enqueue_resume, memory_store, llm)
         )
 
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     @app.post("/tasks", status_code=202)
     def create_task(body: TaskCreate) -> dict[str, str]:
         tid = uuid.uuid4().hex

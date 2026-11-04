@@ -23,3 +23,19 @@ Status: accepted. Target-repo code runs only in containers with no network, read
 
 ## ADR-008: Reviewer from a different model family
 Status: accepted. The reviewer uses a different provider/model family than the specialist it checks, plus evidence rules and structured verdicts, to reduce correlated errors.
+
+## ADR-009: Replay re-executes the graph over recorded answers
+Status: accepted. A replay runs the real graph with an LLM and tool layer that serve each call from the original recording; an override changes one step and anything downstream that no longer matches goes through the gateway. Steps are matched by identity (kind, agent, name, subtask, ordinal), so a diff reports exactly what changed. Write tools are forced to dry-run. Trade-off: replay needs deterministic prompts, which cost us two small changes (no random run ids in reviewer prompts, sorted synthesis payloads).
+
+## ADR-010: A scripted demo mode instead of mocks in the UI
+Status: accepted. `CONDUCTOR_FAKE_LLM=1` runs the unchanged graph, API and tracing on a scripted model and canned tools. The UI and the demo are therefore exercised against the real code paths at zero quota, and a UI bug cannot hide behind a front-end mock. Trade-off: the script is hand-written, so it demonstrates behaviour rather than model quality; quality claims need the live recording.
+
+## ADR-011: Notional prices and per-call rows over provider billing
+Status: accepted. Cost comes from `llm_calls` rows priced by `config/prices.yaml`; cache hits cost zero. Spans reference the row by id so they stay small. Trade-off: numbers are estimates on free tiers; they rank agents and tasks correctly but are not an invoice.
+
+## ADR-012: Cassettes are the gateway's own disk cache
+Status: accepted. The one live recording fills `demo/cassettes/demo.llmcache`, the same cache the gateway always consults first, so a recorded demo replays through production code with no special test double. Trade-off: any prompt change invalidates the affected entries; re-record after editing prompts.
+
+## ADR-013: Memory recall is advisory
+Status: accepted. A failed or empty memory lookup returns "nothing remembered" instead of failing the run (Chroma can transiently error right after writes). Post-task extraction failures are recorded as events and never turn a finished review into a failure.
+

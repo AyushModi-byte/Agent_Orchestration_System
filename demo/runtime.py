@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import re
 import threading
+import uuid
 import zlib
 from collections.abc import Callable
 from typing import Any
@@ -27,7 +28,7 @@ from demo.fake_script import REPO, SEED_MEMORIES, USER, DemoScript, demo_registr
 
 # Notional prices so the cost dashboard has something to show; real models use config/prices.yaml.
 DEMO_PRICES = {
-    f"fake/{role}": Price(input=400.0, output=1200.0)
+    f"fake/{role}": Price(input=4.0, output=12.0)
     for role in ("planner", "specialist", "reviewer", "cheap")
 }
 
@@ -78,24 +79,36 @@ def _in_background(coro_fn: Callable[..., Any]) -> Callable[..., None]:
     return enqueue
 
 
-def build_demo_app() -> FastAPI:
+def build_demo_runtime(seed: bool = True) -> Runtime:
+    """Everything a run needs, in memory. seed=False starts with an empty memory, which is what
+    the scripted demo wants: PR 1 has to teach the system what PR 2 then recalls."""
     engine = make_engine("sqlite:///:memory:")
     init_db(engine)
     sf = make_session_factory(engine)
     init_tracing(DbSpanExporter(sf), batch=False)
     registry = demo_registry()
     registry.store = DbToolCallStore(sf)
-    store = LongTermStore(chromadb.EphemeralClient(), sf, embedding_function=HashEmbedding())
-    for collection, type_, text in SEED_MEMORIES:
-        store.add(collection, text, user_id=USER, repo=REPO, type=type_)
-    llm = FakeLLM(responder=DemoScript())
-    rt = Runtime(
+    store = LongTermStore(
+        chromadb.EphemeralClient(),
+        sf,
+        embedding_function=HashEmbedding(),
+        prefix=uuid.uuid4().hex[:8] + "_",  # EphemeralClient is process-wide; keep runs apart
+    )
+    if seed:
+        for collection, type_, text in SEED_MEMORIES:
+            store.add(collection, text, user_id=USER, repo=REPO, type=type_)
+    return Runtime(
         session_factory=sf,
-        llm=llm,
+        llm=FakeLLM(responder=DemoScript()),
         registry=registry,
         memory_store=store,
         prices=DEMO_PRICES,
     )
+
+
+def build_demo_app() -> FastAPI:
+    rt = build_demo_runtime()
+    sf, store, llm = rt.session_factory, rt.memory_store, rt.llm
 
     async def run(task_id: str) -> None:
         try:

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import time
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -219,12 +220,9 @@ class LongTermStore:
         col = self._cols[collection]
         if col.count() == 0:
             return []
-        res = col.query(
-            query_texts=[text],
-            n_results=min(k, col.count()),
-            where=_where(user_id=user_id, repo=repo, type=type),
-            include=["documents", "metadatas", "distances"],
-        )
+        res = self._search(col, text, k, _where(user_id=user_id, repo=repo, type=type))
+        if res is None:
+            return []
         out = []
         for i, doc, meta, dist in zip(
             res["ids"][0],
@@ -236,6 +234,23 @@ class LongTermStore:
             if max_distance is None or dist <= max_distance:
                 out.append((self._item(collection, i, doc, meta), dist))
         return out
+
+    @staticmethod
+    def _search(col: Any, text: str, k: int, where: dict[str, Any] | None) -> Any:
+        """Chroma's index can transiently raise "Error finding id" right after writes. Recall is
+        advisory, so retry once and then answer "nothing remembered" rather than fail the run."""
+        for attempt in range(2):
+            try:
+                return col.query(
+                    query_texts=[text],
+                    n_results=min(k, col.count()),
+                    where=where,
+                    include=["documents", "metadatas", "distances"],
+                )
+            except Exception:
+                if attempt == 1:
+                    return None
+                time.sleep(0.05)
 
     def list_items(self, collection: str, user_id: str | None = None) -> list[MemoryItem]:
         res = self._cols[collection].get(
