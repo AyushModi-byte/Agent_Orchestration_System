@@ -1,0 +1,10 @@
+# Role -> model mapping. Reviewer deliberately uses a different family than specialists (ADR-008).
+roles:
+  planner:    {primary: gemini/gemini-2.5-pro,        fallback: groq/llama-3.3-70b-versatile}
+  specialist: {primary: gemini/gemini-2.5-flash,      fallback: groq/llama-3.3-70b-versatile}
+  reviewer:   {primary: groq/llama-3.3-70b-versatile, fallback: gemini/gemini-2.5-flash}
+  cheap:      {primary: groq/llama-3.1-8b-instant,    fallback: gemini/gemini-2.5-flash-lite}
+# Keep rpm below the provider free-tier limit. daily_live_budget caps real calls per UTC day.
+providers:
+  gemini: {rpm: 8,  daily_live_budget: 200}
+  groq:   {rpm: 25, daily_live_budget: 500}

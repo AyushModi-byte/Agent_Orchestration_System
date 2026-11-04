@@ -1,0 +1,13 @@
+# Skeleton: filled in by the HITL phase. Thresholds live here, not in code.
+escalation:
+  min_plan_confidence: 0.6
+  min_reviewer_score: 0.7
+  max_specialist_retries: 2
+  max_reviewer_rejections: 2
+approval_levels: [notify, approve_action, approve_plan, take_over]
+actions:
+  post_review_comment: notify
+  push_fix_commit: approve_action
+  merge_request: take_over
+repo_labels:
+  production: approve_plan

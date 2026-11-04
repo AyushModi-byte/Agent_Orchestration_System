@@ -1,0 +1,6 @@
+# Notional USD per 1M tokens (free tiers bill nothing; this feeds cost analytics only).
+gemini/gemini-2.5-pro:        {input: 1.25, output: 10.0}
+gemini/gemini-2.5-flash:      {input: 0.30, output: 2.50}
+gemini/gemini-2.5-flash-lite: {input: 0.10, output: 0.40}
+groq/llama-3.3-70b-versatile: {input: 0.59, output: 0.79}
+groq/llama-3.1-8b-instant:    {input: 0.05, output: 0.08}
