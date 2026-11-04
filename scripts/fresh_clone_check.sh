@@ -25,8 +25,8 @@ cd "$WORK/conductor"
 
 step "python environment"
 PYBIN=""
-for c in python3 python; do   # skip the Windows Store shim, which exists but cannot run
-  if "$c" -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then PYBIN="$c"; break; fi
+for c in ${PYTHON:-} python3 python; do   # PYTHON=... overrides   # skip the Windows Store shim, which exists but cannot run
+  if [ -n "$c" ] && "$c" -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then PYBIN="$c"; break; fi
 done
 [ -n "$PYBIN" ] || { echo "Python 3.11+ is required"; exit 1; }
 "$PYBIN" -m venv .venv
