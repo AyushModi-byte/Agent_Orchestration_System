@@ -33,7 +33,6 @@ done
 "$PYBIN" -m venv .venv
 # shellcheck disable=SC1091
 if [ -f .venv/bin/activate ]; then . .venv/bin/activate; else . .venv/Scripts/activate; fi
-pip install --quiet --upgrade pip
 pip install --quiet -e .
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
