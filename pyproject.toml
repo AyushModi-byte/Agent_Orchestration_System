@@ -11,6 +11,14 @@ dependencies = [
   "docker>=7",
   "mcp>=1.2,<2",
   "defusedxml>=0.7",
+  "langgraph>=1.0",
+  "langgraph-checkpoint-postgres>=3.0",
+  "psycopg[binary]>=3.2",
+  "redis>=5",
+  "celery>=5.4",
+  "fastapi>=0.115",
+  "sqlalchemy>=2.0",
+  "uvicorn>=0.30",
 ]
 
 [dependency-groups]
@@ -23,6 +31,7 @@ dev = [
   "types-docker",
   "types-defusedxml",
   "respx>=0.21",
+  "fakeredis>=2.26",
   "pre-commit>=3.8",
 ]
 
@@ -37,7 +46,7 @@ packages = ["src/conductor"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 markers = [
   "live: calls real LLM providers; needs LIVE_LLM=1 (spends quota)",
   "docker: needs a running Docker daemon and the conductor-sandbox image",
@@ -62,5 +71,5 @@ files = ["src"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["litellm", "litellm.*"]
+module = ["litellm", "litellm.*", "celery", "celery.*"]
 ignore_missing_imports = true

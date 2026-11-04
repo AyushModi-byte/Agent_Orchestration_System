@@ -1,0 +1,6 @@
+# Bounded tool-use loops: each specialist may only use the tools listed here.
+specialists:
+  code_analysis:  {max_iterations: 6, tools: [list_pr_files, get_file, get_pr_diff, run_ruff]}
+  security:       {max_iterations: 6, tools: [get_file, run_bandit, audit_requirements]}
+  test_execution: {max_iterations: 4, tools: [run_tests]}
+  fix_writer:     {max_iterations: 8, tools: [get_file, run_ruff, run_tests]}

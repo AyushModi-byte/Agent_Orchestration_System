@@ -25,6 +25,48 @@ class ModelsConfig(BaseModel):
     providers: dict[str, ProviderLimits]
 
 
+def _load(name: str, path: Path | None) -> object:
+    return yaml.safe_load((path or DEFAULT_CONFIG_DIR / name).read_text(encoding="utf-8"))
+
+
 def load_models_config(path: Path | None = None) -> ModelsConfig:
-    path = path or DEFAULT_CONFIG_DIR / "models.yaml"
-    return ModelsConfig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    return ModelsConfig.model_validate(_load("models.yaml", path))
+
+
+class SpecialistConfig(BaseModel):
+    max_iterations: int
+    tools: list[str]
+
+
+class AgentsConfig(BaseModel):
+    specialists: dict[str, SpecialistConfig]
+
+
+class Escalation(BaseModel):
+    min_plan_confidence: float
+    min_reviewer_score: float
+    max_specialist_retries: int
+    max_reviewer_rejections: int
+
+
+class PoliciesConfig(BaseModel):
+    escalation: Escalation
+
+
+class Price(BaseModel):
+    input: float
+    output: float
+
+
+def load_agents_config(path: Path | None = None) -> AgentsConfig:
+    return AgentsConfig.model_validate(_load("agents.yaml", path))
+
+
+def load_policies(path: Path | None = None) -> PoliciesConfig:
+    return PoliciesConfig.model_validate(_load("policies.yaml", path))
+
+
+def load_prices(path: Path | None = None) -> dict[str, Price]:
+    raw = _load("prices.yaml", path)
+    assert isinstance(raw, dict)
+    return {k: Price.model_validate(v) for k, v in raw.items()}
