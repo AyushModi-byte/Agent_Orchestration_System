@@ -1,0 +1,7 @@
+# Long-term memory tuning. Similarity is cosine (1.0 = identical); distance = 1 - similarity.
+top_k: 3                       # items per group injected into the planning prompt
+max_distance: 0.9              # ignore retrieved items farther than this (irrelevant noise)
+consolidation_similarity: 0.9  # merge near-duplicates at or above this similarity
+expiry_threshold: 0.15         # delete items whose decayed importance falls below this
+half_life_days: 30             # recency halves every this many days without access
+access_scale: 5                # accesses at which the access score reaches ~63%

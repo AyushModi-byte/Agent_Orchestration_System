@@ -162,3 +162,66 @@ class Behavior:
 
 def fake_llm(behavior: Behavior) -> FakeLLM:
     return FakeLLM(responder=behavior)
+
+
+class HashEmbedding:
+    """Deterministic offline bag-of-words embedding for tests (no model download)."""
+
+    def __init__(self, dim: int = 512) -> None:
+        self.dim = dim
+
+    def __call__(self, input: list[str]) -> list[list[float]]:  # noqa: A002
+        import re
+        import zlib
+
+        out = []
+        for text in input:
+            v = [0.0] * self.dim
+            for w in re.findall(r"\w+", text.lower()):
+                v[zlib.crc32(w.encode()) % self.dim] += 1.0
+            norm = sum(x * x for x in v) ** 0.5 or 1.0
+            out.append([x / norm for x in v])
+        return out
+
+    @staticmethod
+    def name() -> str:
+        return "hash-embedding"
+
+    def get_config(self) -> dict[str, int]:
+        return {"dim": self.dim}
+
+    @staticmethod
+    def build_from_config(config: dict[str, int]) -> HashEmbedding:
+        return HashEmbedding(config.get("dim", 512))
+
+    def default_space(self) -> str:
+        return "cosine"
+
+    def supported_spaces(self) -> list[str]:
+        return ["cosine", "l2", "ip"]
+
+    def embed_query(self, input: list[str]) -> list[list[float]]:  # noqa: A002
+        return self(input)
+
+
+def make_store(clock=None, **cfg):  # type: ignore[no-untyped-def]
+    import uuid
+
+    import chromadb
+
+    from conductor.config import load_memory_config
+    from conductor.db.session import init_db, make_engine, make_session_factory
+    from conductor.memory.longterm import LongTermStore
+
+    engine = make_engine("sqlite:///:memory:")
+    init_db(engine)
+    config = load_memory_config().model_copy(update=cfg)
+    kwargs = {"now": clock} if clock else {}
+    return LongTermStore(
+        chromadb.EphemeralClient(),
+        make_session_factory(engine),
+        embedding_function=HashEmbedding(),
+        config=config,
+        prefix=uuid.uuid4().hex[:8] + "_",
+        **kwargs,
+    )

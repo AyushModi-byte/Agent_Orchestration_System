@@ -58,6 +58,19 @@ class Price(BaseModel):
     output: float
 
 
+class MemoryConfig(BaseModel):
+    top_k: int = 3
+    max_distance: float = 0.9
+    consolidation_similarity: float = 0.9
+    expiry_threshold: float = 0.15
+    half_life_days: float = 30.0
+    access_scale: float = 5.0
+
+
+def load_memory_config(path: Path | None = None) -> MemoryConfig:
+    return MemoryConfig.model_validate(_load("memory.yaml", path))
+
+
 def load_agents_config(path: Path | None = None) -> AgentsConfig:
     return AgentsConfig.model_validate(_load("agents.yaml", path))
 

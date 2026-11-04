@@ -10,6 +10,8 @@ from celery import Celery
 
 from conductor.db.session import init_db, make_engine, make_session_factory
 from conductor.llm.gateway import LLMGateway
+from conductor.memory.longterm import LongTermStore, make_chroma_client
+from conductor.memory.manager import MemoryManager
 from conductor.memory.working import WorkingMemory
 from conductor.tools import deps, github, linters  # noqa: F401  (import registers tools)
 from conductor.tools.registry import default_registry
@@ -19,6 +21,10 @@ celery = Celery(
     "conductor",
     broker=os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0"),
 )
+
+celery.conf.beat_schedule = {
+    "memory-maintenance": {"task": "conductor.maintain_memory", "schedule": 86400.0},
+}
 
 _runtime: Runtime | None = None
 
@@ -34,8 +40,10 @@ def get_runtime() -> Runtime:
     if _runtime is None:
         engine = make_engine()
         init_db(engine)
+        sf = make_session_factory(engine)
         _runtime = Runtime(
-            session_factory=make_session_factory(engine),
+            session_factory=sf,
+            memory_store=LongTermStore(make_chroma_client(), sf),
             llm=LLMGateway(),
             registry=default_registry,
             wm=WorkingMemory(
@@ -48,3 +56,14 @@ def get_runtime() -> Runtime:
 @celery.task(name="conductor.run_task")  # type: ignore[untyped-decorator]
 def run_task(task_id: str) -> None:
     asyncio.run(execute_task(task_id, get_runtime()))
+
+
+@celery.task(name="conductor.maintain_memory")  # type: ignore[untyped-decorator]
+def maintain_memory() -> dict[str, int]:
+    """Daily beat job: merge near-duplicates, then decay and expire stale memories."""
+    rt = get_runtime()
+    if rt.memory_store is None:
+        return {"merged": 0, "expired": 0}
+    manager = MemoryManager(rt.memory_store, rt.llm)
+    merged = asyncio.run(manager.consolidate())
+    return {"merged": merged, "expired": manager.expire()}

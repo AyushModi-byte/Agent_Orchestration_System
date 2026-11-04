@@ -24,6 +24,7 @@ from conductor.agents.schemas import (
 from conductor.agents.specialists.base import Specialist, SpecialistError
 from conductor.agents.supervisor import PlanValidationError, Supervisor
 from conductor.config import Escalation
+from conductor.memory.retrieval import Retriever
 from conductor.memory.working import WorkingMemory
 
 
@@ -63,6 +64,7 @@ class GraphDeps:
     reviewer: Reviewer
     policy: Escalation
     wm: WorkingMemory | None = None
+    retriever: Retriever | None = None
 
 
 def _ev(type_: str, **data: Any) -> dict[str, Any]:
@@ -79,11 +81,17 @@ def build_graph(deps: GraphDeps, checkpointer: Any = None) -> Any:
     pol = deps.policy
 
     async def intake(state: GraphState) -> dict[str, Any]:
-        # Long-term memory retrieval arrives in a later phase; the hook is the `memories` field.
+        memories = state.get("memories", [])
+        if deps.retriever is not None:
+            req = state["request"]
+            section = deps.retriever.retrieve(
+                req.get("request", ""), req.get("repo") or "", req.get("user_id", "default")
+            ).format()
+            memories = [section] if section else []
         return {
-            "memories": state.get("memories", []),
+            "memories": memories,
             "status": "running",
-            "events": [_ev("intake", task_id=state["task_id"])],
+            "events": [_ev("intake", task_id=state["task_id"], memories=len(memories))],
         }
 
     async def plan(state: GraphState) -> dict[str, Any]:

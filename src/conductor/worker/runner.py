@@ -21,6 +21,9 @@ from conductor.db.models import LLMCall, PlanStep, Task, TaskEvent
 from conductor.graph.builder import GraphDeps, build_graph
 from conductor.llm.recording import RecordingLLM
 from conductor.llm.types import LLM, LLMResult
+from conductor.memory.longterm import LongTermStore
+from conductor.memory.manager import MemoryManager
+from conductor.memory.retrieval import Retriever
 from conductor.memory.working import WorkingMemory
 from conductor.tools.registry import ToolRegistry
 
@@ -59,6 +62,7 @@ class Runtime:
     llm: LLM
     registry: ToolRegistry
     wm: WorkingMemory | None = None
+    memory_store: LongTermStore | None = None
     checkpointer: Callable[[], AbstractAsyncContextManager[Any]] = field(
         default_factory=default_checkpointer
     )
@@ -128,6 +132,7 @@ async def execute_task(task_id: str, rt: Runtime) -> None:
         reviewer=Reviewer(llm, policy.min_reviewer_score),
         policy=policy,
         wm=rt.wm,
+        retriever=Retriever(rt.memory_store) if rt.memory_store else None,
     )
     final: dict[str, Any] = {}
     persisted = 0
@@ -154,6 +159,8 @@ async def execute_task(task_id: str, rt: Runtime) -> None:
             t.escalation_reason = final.get("escalation_reason")
             t.report = final.get("report")
             s.commit()
+        if rt.memory_store is not None:
+            await _remember(sf, task_id, final, request, MemoryManager(rt.memory_store, llm))
     except Exception as exc:
         if rt.wm:
             rt.wm.clear(task_id)
@@ -165,3 +172,23 @@ async def execute_task(task_id: str, rt: Runtime) -> None:
             s.add(TaskEvent(task_id=task_id, type="failed", payload={"error": t.error}))
             s.commit()
         raise
+
+
+async def _remember(
+    sf: sessionmaker[Session],
+    task_id: str,
+    final: dict[str, Any],
+    request: dict[str, Any],
+    manager: MemoryManager,
+) -> None:
+    """Post-task extraction. A memory failure must never turn a finished review into a failure."""
+    try:
+        n = await manager.extract_and_store(
+            final, request.get("user_id", "default"), request.get("repo") or ""
+        )
+        event = TaskEvent(task_id=task_id, type="memory_saved", payload={"items": n})
+    except Exception as exc:
+        event = TaskEvent(task_id=task_id, type="memory_failed", payload={"error": str(exc)})
+    with sf() as s:
+        s.add(event)
+        s.commit()

@@ -13,7 +13,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, sessionmaker
 
+from conductor.api.routes.memory import make_router as make_memory_router
 from conductor.db.models import PlanStep, Task, TaskEvent
+from conductor.memory.longterm import LongTermStore
 
 TERMINAL = {"completed", "needs_human", "failed"}
 
@@ -23,6 +25,7 @@ class TaskCreate(BaseModel):
     repo: str | None = None
     pr_number: int | None = None
     snapshot_dir: str | None = None
+    user_id: str = "default"
 
 
 class StepOut(BaseModel):
@@ -47,8 +50,11 @@ def create_app(
     session_factory: sessionmaker[Session],
     enqueue: Callable[[str], None],
     poll_interval: float = 0.2,
+    memory_store: LongTermStore | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Conductor")
+    if memory_store is not None:
+        app.include_router(make_memory_router(memory_store))
 
     @app.post("/tasks", status_code=202)
     def create_task(body: TaskCreate) -> dict[str, str]:

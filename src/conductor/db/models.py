@@ -55,6 +55,27 @@ class LLMCall(Base):
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
 
+class MemoryMeta(Base):
+    """SQL mirror of every long-term memory: powers the dashboard and keeps provenance for
+    memories that were merged away (archived rows point at the summary via merged_into)."""
+
+    __tablename__ = "memory_meta"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    collection: Mapped[str] = mapped_column(String)
+    user_id: Mapped[str] = mapped_column(String, index=True)
+    repo: Mapped[str] = mapped_column(String, default="")
+    type: Mapped[str] = mapped_column(String)
+    text: Mapped[str] = mapped_column(Text)
+    importance: Mapped[float] = mapped_column(Float, default=0.5)
+    access_count: Mapped[int] = mapped_column(Integer, default=0)
+    feedback: Mapped[float] = mapped_column(Float, default=0.0)
+    sources: Mapped[list[str]] = mapped_column(JSON, default=list)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    merged_into: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    last_accessed: Mapped[datetime] = mapped_column(default=_now)
+
+
 class TaskEvent(Base):
     __tablename__ = "task_events"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
