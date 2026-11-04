@@ -15,6 +15,7 @@ from conductor.agents.prompts_loader import load_prompt
 from conductor.llm.types import LLM
 from conductor.memory.extraction import extract_and_store
 from conductor.memory.longterm import COLLECTIONS, LongTermStore, MemoryItem, importance_score
+from conductor.obs.tracing import agent_span
 
 
 class MergedMemory(BaseModel):
@@ -27,7 +28,10 @@ class MemoryManager:
         self._llm = llm
 
     async def extract_and_store(self, state: dict[str, Any], user_id: str, repo: str) -> int:
-        return await extract_and_store(self._llm, self._store, state, user_id, repo)
+        with agent_span("memory.extract", "memory") as sp:
+            n = await extract_and_store(self._llm, self._store, state, user_id, repo)
+            sp.set_attribute("items", n)
+            return n
 
     async def consolidate(self, user_id: str | None = None) -> int:
         """Merge near-duplicates into one summary each; returns how many items were removed."""

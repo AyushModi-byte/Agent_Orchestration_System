@@ -13,7 +13,10 @@ from conductor.llm.gateway import LLMGateway
 from conductor.memory.longterm import LongTermStore, make_chroma_client
 from conductor.memory.manager import MemoryManager
 from conductor.memory.working import WorkingMemory
+from conductor.obs.exporter import DbSpanExporter
+from conductor.obs.tracing import init_tracing
 from conductor.tools import deps, github, linters  # noqa: F401  (import registers tools)
+from conductor.tools.call_log import DbToolCallStore
 from conductor.tools.registry import default_registry
 from conductor.worker.runner import Runtime, execute_task
 from conductor.worker.runner import resume_task as resume_execution
@@ -42,6 +45,8 @@ def get_runtime() -> Runtime:
         engine = make_engine()
         init_db(engine)
         sf = make_session_factory(engine)
+        init_tracing(DbSpanExporter(sf))
+        default_registry.store = DbToolCallStore(sf)
         _runtime = Runtime(
             session_factory=sf,
             memory_store=LongTermStore(make_chroma_client(), sf),

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from conductor.memory.longterm import LongTermStore, MemoryItem
+from conductor.obs.tracing import agent_span
 
 
 class RetrievedMemories(BaseModel):
@@ -47,6 +48,14 @@ class Retriever:
         self._store = store
 
     def retrieve(self, task: str, repo: str, user_id: str) -> RetrievedMemories:
+        with agent_span("memory.retrieve", "memory") as sp:
+            got = self._retrieve(task, repo, user_id)
+            items = got.all_items()
+            sp.set_attribute("memory_ids", [it.id for it in items])
+            sp.set_attribute("count", len(items))
+            return got
+
+    def _retrieve(self, task: str, repo: str, user_id: str) -> RetrievedMemories:
         s, cfg = self._store, self._store.cfg
 
         def q(coll: str, cutoff: bool = True, **filters: str | None) -> list[MemoryItem]:

@@ -6,6 +6,7 @@ so a misbehaving agent cannot reach a tool it was not granted.
 
 from __future__ import annotations
 
+import json
 import time
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -87,6 +88,18 @@ class ToolRegistry:
 
         return deco
 
+    def derive(
+        self,
+        wrap: Callable[[Tool], Handler],
+        store: ToolCallStore | None = None,
+    ) -> ToolRegistry:
+        """A registry with the same tools, schemas and permissions but different handlers.
+        Replay uses this to serve recorded results through the normal invoke() path."""
+        other = ToolRegistry(store=store, clock=self._clock)
+        for name, t in self._tools.items():
+            other._tools[name] = t.model_copy(update={"handler": wrap(t), "rate_limit": None})
+        return other
+
     def get(self, name: str) -> Tool:
         try:
             return self._tools[name]
@@ -135,13 +148,16 @@ class ToolRegistry:
                 raise
             finally:
                 latency = (time.perf_counter() - start) * 1000
+                span.set_attribute("tool", tool)
                 span.set_attribute("success", error is None)
+                span.set_attribute("status", "ok" if error is None else "error")
+                span.set_attribute("error", error)
                 span.set_attribute("latency_ms", latency)
                 self.store.record(
                     ToolCallRecord(
                         agent=agent,
                         tool=tool,
-                        inputs=repr(args),
+                        inputs=json.dumps(args, sort_keys=True, default=str),
                         outputs=outputs,
                         latency_ms=latency,
                         success=error is None,

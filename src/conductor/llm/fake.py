@@ -44,4 +44,7 @@ class FakeLLM:
             parsed = parse_model(text, schema) if schema else None
         except (ValueError, ValidationError) as exc:
             raise SchemaValidationError(str(exc)) from exc
-        return LLMResult(text=text, parsed=parsed, usage=Usage(model=f"fake/{role}"))
+        # rough 4-chars-per-token estimate so cost accounting has something deterministic to add up
+        tokens_in = sum(len(m["content"]) for m in messages) // 4
+        usage = Usage(model=f"fake/{role}", tokens_in=tokens_in, tokens_out=len(text) // 4)
+        return LLMResult(text=text, parsed=parsed, usage=usage)

@@ -13,6 +13,7 @@ from typing import Any
 from conductor.agents.prompts_loader import load_prompt
 from conductor.agents.schemas import SpecialistResult, StepDecision, Subtask, ToolTrace
 from conductor.llm.types import LLM, SchemaValidationError
+from conductor.obs.tracing import agent_span
 from conductor.tools.registry import ToolRegistry
 
 OBSERVATION_LIMIT = 6000
@@ -94,6 +95,20 @@ class Specialist:
         upstream: dict[str, Any],
         hint: str | None = None,
         feedback: str | None = None,
+    ) -> SpecialistResult:
+        with agent_span("specialist.run", self.name, subtask_id=subtask.id) as sp:
+            result = await self._run(subtask, context, upstream, hint, feedback)
+            sp.set_attribute("findings", len(result.findings))
+            sp.set_attribute("tool_calls", len(result.tool_summary))
+            return result
+
+    async def _run(
+        self,
+        subtask: Subtask,
+        context: dict[str, Any],
+        upstream: dict[str, Any],
+        hint: str | None,
+        feedback: str | None,
     ) -> SpecialistResult:
         payload = {
             "subtask": subtask.model_dump(),

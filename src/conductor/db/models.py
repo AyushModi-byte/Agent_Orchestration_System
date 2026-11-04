@@ -53,6 +53,66 @@ class LLMCall(Base):
     cache_hit: Mapped[bool] = mapped_column(Boolean, default=False)
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)  # notional, see prices.yaml
     created_at: Mapped[datetime] = mapped_column(default=_now)
+    # Full prompt/response live here (spans only reference this row), which also lets replay
+    # serve a past run's answers without calling a provider.
+    agent: Mapped[str | None] = mapped_column(String, nullable=True)
+    subtask_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    schema_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    request: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
+    response: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class SpanRow(Base):
+    """Finished OpenTelemetry spans. Hot attributes are columns; the rest stay in `attributes`."""
+
+    __tablename__ = "spans"
+    pk: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trace_id: Mapped[str] = mapped_column(String)
+    span_id: Mapped[str] = mapped_column(String, index=True)
+    parent_span_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    task_id: Mapped[str] = mapped_column(String, index=True, default="")
+    name: Mapped[str] = mapped_column(String)
+    agent: Mapped[str | None] = mapped_column(String, nullable=True)
+    role: Mapped[str | None] = mapped_column(String, nullable=True)
+    model: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="ok")
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    start_time: Mapped[datetime] = mapped_column()
+    end_time: Mapped[datetime] = mapped_column()
+    duration_ms: Mapped[float] = mapped_column(Float, default=0.0)
+    tokens_in: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    llm_call_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class ToolCall(Base):
+    __tablename__ = "tool_calls"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_id: Mapped[str | None] = mapped_column(String, index=True, nullable=True)
+    agent: Mapped[str] = mapped_column(String)
+    subtask_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    tool: Mapped[str] = mapped_column(String)
+    inputs: Mapped[str] = mapped_column(Text)  # canonical JSON, so replay can match calls
+    outputs: Mapped[str | None] = mapped_column(Text, nullable=True)
+    latency_ms: Mapped[float] = mapped_column(Float, default=0.0)
+    success: Mapped[bool] = mapped_column(Boolean, default=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+class Replay(Base):
+    __tablename__ = "replays"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    source_task_id: Mapped[str] = mapped_column(String, index=True)
+    overrides: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String, default="running")
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    live_calls: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
 
 
 class MemoryMeta(Base):

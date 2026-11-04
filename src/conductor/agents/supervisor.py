@@ -16,6 +16,7 @@ from conductor.agents.schemas import (
     SpecialistResult,
 )
 from conductor.llm.types import LLM, SchemaValidationError
+from conductor.obs.tracing import agent_span
 
 
 class PlanValidationError(Exception):
@@ -64,6 +65,18 @@ class Supervisor:
         retrieved_memories: list[str],
         human_feedback: list[str] | None = None,
     ) -> ExecutionPlan:
+        with agent_span("supervisor.plan", "supervisor", memories=len(retrieved_memories)) as sp:
+            plan = await self._plan(task, retrieved_memories, human_feedback)
+            sp.set_attribute("steps", len(plan.steps))
+            sp.set_attribute("confidence", plan.confidence)
+            return plan
+
+    async def _plan(
+        self,
+        task: dict[str, Any],
+        retrieved_memories: list[str],
+        human_feedback: list[str] | None,
+    ) -> ExecutionPlan:
         msgs = [
             {"role": "system", "content": load_prompt("planner")},
             {
@@ -96,12 +109,16 @@ class Supervisor:
     async def synthesize(
         self, results: dict[str, SpecialistResult], verdicts: dict[str, ReviewVerdict]
     ) -> ReviewReport:
+        with agent_span("supervisor.synthesize", "supervisor", results=len(results)):
+            return await self._synthesize(results)
+
+    async def _synthesize(self, results: dict[str, SpecialistResult]) -> ReviewReport:
         findings = [f for r in results.values() for f in r.findings]
         fixes = [fx for r in results.values() for fx in r.output.get("fixes", [])]
         payload = {
             "results": {
                 k: {"output": r.output, "findings": [f.model_dump() for f in r.findings]}
-                for k, r in results.items()
+                for k, r in sorted(results.items())
             }
         }
         msgs = [

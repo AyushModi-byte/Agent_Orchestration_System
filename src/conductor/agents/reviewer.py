@@ -15,6 +15,7 @@ from conductor.agents.schemas import (
     ToolTrace,
 )
 from conductor.llm.types import LLM
+from conductor.obs.tracing import agent_span
 
 
 def _cites_real_output(f: Finding, traces: list[ToolTrace]) -> bool:
@@ -60,6 +61,14 @@ class Reviewer:
         self._min = min_score
 
     async def review(self, subtask: Subtask, result: SpecialistResult) -> ReviewVerdict:
+        with agent_span("reviewer.evaluate", "reviewer", subtask_id=subtask.id) as sp:
+            verdict = await self._review(subtask, result)
+            sp.set_attribute("approved", verdict.approved)
+            sp.set_attribute("score", verdict.score)
+            sp.set_attribute("issues", len(verdict.issues))
+            return verdict
+
+    async def _review(self, subtask: Subtask, result: SpecialistResult) -> ReviewVerdict:
         issues = evidence_issues(subtask, result)
         if issues:  # no point spending a model call on a result that already fails the rules
             return ReviewVerdict(
@@ -75,7 +84,12 @@ class Reviewer:
             {
                 "role": "user",
                 "content": json.dumps(
-                    {"subtask": subtask.model_dump(), "result": result.model_dump()}, default=str
+                    {
+                        "subtask": subtask.model_dump(),
+                        # run_id is random; leaving it out keeps identical work cacheable
+                        "result": result.model_dump(exclude={"run_id"}),
+                    },
+                    default=str,
                 ),
             },
         ]

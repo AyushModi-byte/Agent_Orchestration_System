@@ -24,12 +24,13 @@ from conductor.config import Price, load_policies, load_prices
 from conductor.db.models import Approval, LLMCall, PlanStep, Task, TaskEvent
 from conductor.graph.builder import GraphDeps, build_graph
 from conductor.hitl.queue import ApprovalQueue
-from conductor.llm.recording import RecordingLLM
-from conductor.llm.types import LLM, LLMResult
+from conductor.llm.recording import LLMRecord, RecordingLLM
+from conductor.llm.types import LLM
 from conductor.memory.longterm import LongTermStore
 from conductor.memory.manager import MemoryManager
 from conductor.memory.retrieval import Retriever
 from conductor.memory.working import WorkingMemory
+from conductor.obs.tracing import agent_span, bind, get_tracer
 from conductor.tools.registry import ToolRegistry
 
 _PROCESS_SAVER = MemorySaver()  # dev default: survives across runs within one process
@@ -127,11 +128,77 @@ async def resume_task(task_id: str, approval_id: str, rt: Runtime) -> None:
         row = s.get(Approval, approval_id)
         assert row is not None and row.decision is not None
         decision = dict(row.decision)
-    await _drive(task_id, rt, Command(resume=decision))
+        waited = (row.decided_at - row.created_at).total_seconds() if row.decided_at else 0.0
+        kind, level = row.kind, row.level
+    with (
+        bind(task_id=task_id),
+        get_tracer().span(
+            "hitl.resolution",
+            approval_id=approval_id,
+            kind=kind,
+            level=level,
+            decision=decision["type"],
+            review_seconds=waited,
+        ),
+    ):
+        pass
+    await _drive(task_id, rt, Command(resume=decision), root="task.resume")
     ApprovalQueue(rt.session_factory).resolve(approval_id)
 
 
-async def _drive(task_id: str, rt: Runtime, graph_input: Any) -> None:
+def make_llm_sink(sf: sessionmaker[Session], task_id: str) -> Callable[[LLMRecord], int]:
+    """Persist every model call with its full prompt and response; spans only keep the row id."""
+
+    def sink(rec: LLMRecord) -> int:
+        with sf() as s:
+            u = rec.usage
+            row = LLMCall(
+                task_id=task_id,
+                role=rec.role,
+                model=u.model,
+                tokens_in=u.tokens_in,
+                tokens_out=u.tokens_out,
+                latency_ms=u.latency_ms,
+                cache_hit=u.cache_hit,
+                cost_usd=rec.cost_usd,
+                agent=rec.agent,
+                subtask_id=rec.subtask_id,
+                schema_name=rec.schema_name,
+                request=rec.messages,
+                response=rec.text,
+            )
+            s.add(row)
+            s.commit()
+            return int(row.id)
+
+    return sink
+
+
+def make_deps(
+    llm: LLM,
+    registry: ToolRegistry,
+    wm: WorkingMemory | None = None,
+    memory_store: LongTermStore | None = None,
+) -> GraphDeps:
+    policy = load_policies()
+    return GraphDeps(
+        supervisor=Supervisor(llm),
+        specialists=build_specialists(llm, registry),
+        reviewer=Reviewer(llm, policy.escalation.min_reviewer_score),
+        policy_config=policy,
+        wm=wm,
+        retriever=Retriever(memory_store) if memory_store else None,
+        registry=registry,
+        memory_store=memory_store,
+    )
+
+
+async def _drive(task_id: str, rt: Runtime, graph_input: Any, root: str = "task.run") -> None:
+    with bind(task_id=task_id), get_tracer().span(root, task_id=task_id) as sp:
+        await _drive_inner(task_id, rt, graph_input, sp)
+
+
+async def _drive_inner(task_id: str, rt: Runtime, graph_input: Any, sp: Any) -> None:
     sf = rt.session_factory
     with sf() as s:
         task = s.get(Task, task_id)
@@ -140,35 +207,8 @@ async def _drive(task_id: str, rt: Runtime, graph_input: Any) -> None:
         task.status = "running"
         s.commit()
 
-    def sink(role: str, res: LLMResult, cost: float) -> None:
-        with sf() as s2:
-            u = res.usage
-            s2.add(
-                LLMCall(
-                    task_id=task_id,
-                    role=role,
-                    model=u.model,
-                    tokens_in=u.tokens_in,
-                    tokens_out=u.tokens_out,
-                    latency_ms=u.latency_ms,
-                    cache_hit=u.cache_hit,
-                    cost_usd=cost,
-                )
-            )
-            s2.commit()
-
-    llm = RecordingLLM(rt.llm, sink, rt.prices)
-    policy = load_policies()
-    deps = GraphDeps(
-        supervisor=Supervisor(llm),
-        specialists=build_specialists(llm, rt.registry),
-        reviewer=Reviewer(llm, policy.escalation.min_reviewer_score),
-        policy_config=policy,
-        wm=rt.wm,
-        retriever=Retriever(rt.memory_store) if rt.memory_store else None,
-        registry=rt.registry,
-        memory_store=rt.memory_store,
-    )
+    llm = RecordingLLM(rt.llm, make_llm_sink(sf, task_id), rt.prices)
+    deps = make_deps(llm, rt.registry, rt.wm, rt.memory_store)
     queue = ApprovalQueue(sf)
     final: dict[str, Any] = {}
     interrupted = False
@@ -200,6 +240,15 @@ async def _drive(task_id: str, rt: Runtime, graph_input: Any) -> None:
                     interrupted = True
                     ctx = intr.value
                     if queue.create(task_id, intr.id, ctx):
+                        with agent_span(
+                            "hitl.escalation",
+                            "supervisor",
+                            approval_id=intr.id,
+                            kind=ctx["kind"],
+                            level=ctx["level"],
+                            triggers=[x["name"] for x in ctx["triggers"]],
+                        ):
+                            pass
                         with sf() as s:
                             s.add(
                                 TaskEvent(
@@ -224,6 +273,7 @@ async def _drive(task_id: str, rt: Runtime, graph_input: Any) -> None:
                 t.escalation_reason = final.get("escalation_reason")
                 t.report = final.get("report")
             s.commit()
+        sp.set_attribute("task_status", "awaiting_approval" if interrupted else final.get("status"))
         if not interrupted and rt.memory_store is not None:
             await _remember(sf, task_id, final, request, MemoryManager(rt.memory_store, llm))
     except Exception as exc:

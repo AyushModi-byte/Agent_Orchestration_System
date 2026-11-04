@@ -7,6 +7,10 @@ import sqlite3
 from typing import Protocol
 
 from pydantic import BaseModel
+from sqlalchemy.orm import Session, sessionmaker
+
+from conductor.db.models import ToolCall
+from conductor.obs.tracing import current
 
 
 class ToolCallRecord(BaseModel):
@@ -66,3 +70,43 @@ class SqliteToolCallStore:
             )
             for r in rows
         ]
+
+
+class DbToolCallStore:
+    """tool_calls rows in the main database, tagged with the task and subtask that made the call
+    (read from the tracing context), so cost reports and replays can find them."""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self._sf = session_factory
+
+    def record(self, rec: ToolCallRecord) -> None:
+        with self._sf() as s:
+            s.add(
+                ToolCall(
+                    task_id=current("task_id"),
+                    subtask_id=current("subtask_id"),
+                    agent=rec.agent,
+                    tool=rec.tool,
+                    inputs=rec.inputs,
+                    outputs=rec.outputs,
+                    latency_ms=rec.latency_ms,
+                    success=rec.success,
+                    error=rec.error,
+                )
+            )
+            s.commit()
+
+    def all(self) -> list[ToolCallRecord]:
+        with self._sf() as s:
+            return [
+                ToolCallRecord(
+                    agent=r.agent,
+                    tool=r.tool,
+                    inputs=r.inputs,
+                    outputs=r.outputs,
+                    latency_ms=r.latency_ms,
+                    success=r.success,
+                    error=r.error,
+                )
+                for r in s.query(ToolCall).order_by(ToolCall.id)
+            ]

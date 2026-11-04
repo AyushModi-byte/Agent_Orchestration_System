@@ -15,10 +15,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from conductor.api.routes.approvals import make_router as make_approvals_router
 from conductor.api.routes.memory import make_router as make_memory_router
+from conductor.api.routes.metrics import make_router as make_metrics_router
+from conductor.api.routes.replays import make_router as make_replays_router
+from conductor.api.routes.traces import make_router as make_traces_router
 from conductor.db.models import PlanStep, Task, TaskEvent
 from conductor.hitl.queue import ApprovalQueue
 from conductor.llm.types import LLM
 from conductor.memory.longterm import LongTermStore
+from conductor.obs.replay import ReplayService
 
 TERMINAL = {"completed", "needs_human", "failed", "taken_over"}
 
@@ -59,10 +63,15 @@ def create_app(
     memory_store: LongTermStore | None = None,
     enqueue_resume: Callable[[str, str], None] | None = None,
     llm: LLM | None = None,
+    replay_service: ReplayService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Conductor")
     if memory_store is not None:
         app.include_router(make_memory_router(memory_store))
+    app.include_router(make_traces_router(session_factory))
+    app.include_router(make_metrics_router(session_factory))
+    if replay_service is not None:
+        app.include_router(make_replays_router(replay_service))
     if enqueue_resume is not None:
         app.include_router(
             make_approvals_router(ApprovalQueue(session_factory), enqueue_resume, memory_store, llm)
