@@ -1,10 +1,44 @@
+<div align="center">
+
 # Conductor
 
-Conductor is a multi-agent reviewer for pull requests. A supervisor breaks a review into dependency-ordered subtasks, four tool-using specialists (code analysis, security, test execution, fix writing) do the work in parallel, and a reviewer agent refuses any claim that does not cite real tool output. Sensitive steps pause for a human, past reviews teach it what to do next time, every decision is traced and priced, and **it cannot merge or deploy by design**. It runs on free-tier Gemini and Groq, and the whole test suite and demo run with zero quota.
+**A multi-agent code-review and DevOps orchestrator that cannot merge or deploy by design.**
 
-![Run console](docs/img/run-console.png) <!-- placeholder: capture with `make demo-ui` -->
-![Trace explorer](docs/img/trace-explorer.png) <!-- placeholder -->
-![Review queue](docs/img/review-queue.png) <!-- placeholder -->
+[![CI](https://github.com/AyushModi-byte/Agent_Orchestration_System/actions/workflows/ci.yml/badge.svg)](https://github.com/AyushModi-byte/Agent_Orchestration_System/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11-blue)
+![LangGraph](https://img.shields.io/badge/orchestration-LangGraph-8A63D2)
+![FastAPI](https://img.shields.io/badge/api-FastAPI-009688)
+![React](https://img.shields.io/badge/ui-React-61DAFB)
+![Free tier](https://img.shields.io/badge/LLMs-Gemini%20%2B%20Groq%20free%20tier-orange)
+
+</div>
+
+A supervisor breaks a pull-request review into dependency-ordered subtasks. Four tool-using specialists (code analysis, security, test execution, fix writing) do the work in parallel, and a reviewer agent rejects any claim that does not cite real tool output. Sensitive steps pause for a human, past reviews teach it what to do next time, and every decision is traced and priced.
+
+It runs on free-tier Gemini and Groq. The full test suite and the demo run with zero quota.
+
+## Screenshots
+
+**Run console.** Plan DAG and live progress for a review. Here the run is paused for a human decision.
+
+![Run console](docs/img/run-console.png)
+
+**Review queue.** The human gate: proposed action, reasoning, memories, past decisions, and a chat with the agent before approving.
+
+![Review queue](docs/img/review-queue.png)
+
+**Trace explorer.** Every agent step and tool call as a span, with latency and cost.
+
+![Trace explorer](docs/img/trace-explorer.png)
+
+## Highlights
+
+- **Evidence before opinion.** The reviewer checks findings against tool output before it spends a model call.
+- **Human in the loop.** Four approval levels defined in YAML. Runs pause and resume from a LangGraph checkpoint.
+- **Sandboxed execution.** No network, read-only root filesystem, CPU and memory limits, timeout.
+- **One door for model calls.** Cache, rate limiter, daily budget and fallback live in a single gateway.
+- **Memory.** Redis working memory and Chroma long-term memory feed later plans.
+- **Observable.** OpenTelemetry spans, per-agent cost and deterministic replay.
 
 ## Architecture
 
@@ -45,18 +79,25 @@ Measured on this repository today (no model quality claims are made from scripte
 You need Python 3.11+, Node 20+ (for the UI) and, for the full stack, Docker.
 
 ```bash
-git clone <this repo> && cd conductor
-python -m venv .venv && . .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e ".[dev]" 2>/dev/null || pip install -e . && pip install pytest pytest-asyncio ruff mypy
+git clone https://github.com/AyushModi-byte/Agent_Orchestration_System.git
+cd Agent_Orchestration_System
 
-make demo                    # scripted two-PR scenario, zero quota, no network
-make demo-ui                 # API in demo mode + Vite dev server on http://localhost:5173
-make up                      # full stack: api, worker, beat, redis, postgres, chroma, web  (Docker)
-                             #   UI at http://localhost:8080, API docs at http://localhost:8000/docs
-CONDUCTOR_FAKE_LLM=1 make up # same stack, scripted models (no API keys needed)
-make test                    # ruff, mypy, pytest, UI build and tests
-scripts/fresh_clone_check.sh # clone -> install -> up -> demo, with timing
+# with uv (recommended)
+uv sync
+
+# or with pip
+python -m venv .venv && . .venv/bin/activate        # Windows: .venv\Scriptsctivate
+pip install -e . pytest pytest-asyncio ruff mypy
 ```
+
+| Command | What it does |
+| --- | --- |
+| `make demo` | Scripted two-PR scenario. Zero quota, no network. |
+| `make demo-ui` | API in demo mode plus the Vite dev server on http://localhost:5173 |
+| `make up` | Full stack in Docker: api, worker, beat, redis, postgres, chroma, web. UI on :8080, API docs on :8000/docs |
+| `CONDUCTOR_FAKE_LLM=1 make up` | Same stack with scripted models, no API keys needed |
+| `make test` | ruff, mypy, pytest, UI build and UI tests |
+| `scripts/fresh_clone_check.sh` | Clone, install, up, demo, with timing |
 
 Real models: copy `.env.example` to `.env`, add `GEMINI_API_KEY` and `GROQ_API_KEY`. Nothing calls a provider unless `LIVE_LLM=1`. GitHub writes are dry runs unless `DRY_RUN=0`.
 

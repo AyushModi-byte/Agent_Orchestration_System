@@ -21,7 +21,10 @@ export default function ChatPanel({ approvalId }: { approvalId: string }) {
     setMsgs([]);
     setQ("");
   }, [approvalId]);
-  useEffect(() => end.current?.scrollIntoView?.({ block: "nearest" }), [msgs, chat.isPending]);
+  useEffect(() => {
+    // Braces matter: an effect must return a cleanup function or nothing, never the call's value.
+    end.current?.scrollIntoView?.({ block: "nearest" });
+  }, [msgs, chat.isPending]);
 
   const ask = (text: string) => {
     const question = text.trim();
