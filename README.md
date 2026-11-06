@@ -145,3 +145,7 @@ T0 unit and T1 integration run on FakeLLM and fake tools; e2e covers the showcas
 Alembic migrations; per-item memory edit and delete; GitHub App auth and webhook-triggered reviews; gVisor sandbox; replay as a background job; richer eval suite on recorded cassettes; more specialists (docs, performance).
 
 Docs: [architecture](docs/architecture.md) · [decisions](docs/decisions.md) · [API](docs/api.md) · [demo script](docs/demo.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
